@@ -1,7 +1,7 @@
 #include "freeRTOS/FreeRTOS.h"
 #include <lvgl.h>
 #include "lv_ra8875.h"
-
+// LETS ADD HERE THE TOUCHSCREEN DRIVER SUPPORT
 
 /*Set to your screen resolution and rotation*/
 #define TFT_HOR_RES   480
