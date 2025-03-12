@@ -15,6 +15,7 @@ extern "C" {
  *********************/
 #include <stdbool.h>
 #include <stdint.h>
+#include <stddef.h>
 
 /*********************
  *      DEFINES
@@ -112,6 +113,8 @@ void ra8875_init(void);
 void ra8875_enable_display(bool enable);
 void ra8875_set_rotation(int rotation);
 void ra8875_set_window(unsigned int xs, unsigned int xe, unsigned int ys, unsigned int ye);
+void ra8875_set_memory_write_cursor(unsigned int x, unsigned int y);
+void ra8875_send_buffer(uint8_t * data, size_t length, bool signal_flush);
 // void ra8875_flush(lv_disp_drv_t * drv, const lv_area_t * area, lv_color_t * color_map);
 
 void ra8875_sleep_in(void);

@@ -5,8 +5,8 @@
 #include "ra8875.h"
 #include <stdint.h>
 
-static void flush_cb(lv_display_t * disp, const lv_area_t * area, uint8_t * px_map)
-static void resolution_changed_event_cb(lv_event* e);
+static void flush_cb(lv_display_t * disp, const lv_area_t * area, uint8_t * px_map);
+static void resolution_changed_event_cb(lv_event_t* e);
 
 lv_display_t * lv_ra8875_create(uint32_t hor_res, uint32_t ver_res, void* buf, uint32_t buf_size_bytes){
     // lv_tft_espi_t * dsc = (lv_tft_espi_t *)lv_malloc_zeroed(sizeof(lv_tft_espi_t));
@@ -15,7 +15,6 @@ lv_display_t * lv_ra8875_create(uint32_t hor_res, uint32_t ver_res, void* buf, u
 
     lv_display_t * disp = lv_display_create(hor_res, ver_res);
     if(disp == NULL) {
-        lv_free(dsc);
         return NULL;
     }
 
@@ -37,7 +36,7 @@ static void flush_cb(lv_display_t * disp, const lv_area_t * area, uint8_t * px_m
     #endif
 
     // Get lock
-    disp_spi_acquire();
+    // disp_spi_acquire(); TO-DO CHECK IF REALLY NECESSARY TO ACQUIRE THE BUS
 
     // Set window
     #if DEBUG
@@ -60,15 +59,15 @@ static void flush_cb(lv_display_t * disp, const lv_area_t * area, uint8_t * px_m
     // }
 
     // Write data
-    ra8875_send_buffer(buffer, w*h, false);
+    ra8875_send_buffer(px_map, w*h, false);
 
     // Release lock
-    disp_spi_release();
+    // disp_spi_release();
 
     lv_display_flush_ready(disp);
 }
 
-static void resolution_changed_event_cb(lv_event_t * e){
+static void resolution_changed_event_cb(lv_event_t* e){
 
     lv_display_t * disp = (lv_display_t *)lv_event_get_target(e);
     lv_display_rotation_t rot = lv_display_get_rotation(disp);

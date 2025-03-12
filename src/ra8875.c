@@ -110,8 +110,6 @@
  *  STATIC PROTOTYPES
  **********************/
 static void ra8875_configure_clocks(bool high_speed);
-static void ra8875_set_memory_write_cursor(unsigned int x, unsigned int y);
-static void ra8875_send_buffer(uint8_t * data, size_t length, bool signal_flush);
 
 /**********************
  *  STATIC VARIABLES
@@ -147,10 +145,10 @@ void ra8875_init(void)
         {RA8875_REG_VSTR1,  VSTR_VAL >> 8},            // VSYNC Start Position Register (VSTR1)
         {RA8875_REG_VPWR,   VPWR_VAL},                 // VSYNC Pulse Width Register (VPWR)
         {RA8875_REG_DPCR,   DPCR_VAL},                 // Display Configuration Register (DPCR)
-        {RA8875_REG_MWCR0,  0x00},                     // Memory Write Control Register 0 (MWCR0)
+        {RA8875_REG_MWCR0,  0x00},                     // Memory Write Control Register 0 (MWCR0) //TODO MAY NEED TO MODIFY FOR ROTATION
         {RA8875_REG_MWCR1,  0x00},                     // Memory Write Control Register 1 (MWCR1)
-        {RA8875_REG_LTPR0,  0x00},                     // Layer Transparency Register0 (LTPR0)
-        {RA8875_REG_LTPR1,  0x00},                     // Layer Transparency Register1 (LTPR1)
+        {RA8875_REG_LTPR0,  0x00},                     // Layer Transparency Register0 (LTPR0) //LAYER1 ENABLED
+        {RA8875_REG_LTPR1,  0x00},                     // Layer Transparency Register1 (LTPR1) //TRANSPARENCY FOR EACH DISPLAY
     };
     #define INIT_CMDS_SIZE (sizeof(init_cmds)/sizeof(init_cmds[0]))
 
@@ -306,11 +304,7 @@ void ra8875_set_window(unsigned int xs, unsigned int xe, unsigned int ys, unsign
     ra8875_write_cmd(RA8875_REG_VEAW1, (uint8_t)(ye >> 8));    // Vertical End Point of Active Window 1 (VEAW1)
 }
 
-/**********************
- *   STATIC FUNCTIONS
- **********************/
-
-static void ra8875_set_memory_write_cursor(unsigned int x, unsigned int y)
+void ra8875_set_memory_write_cursor(unsigned int x, unsigned int y)
 {
     ESP_LOGI(TAG, "RA8875 device setting a write cursor..");
     ra8875_write_cmd(RA8875_REG_CURH0, (uint8_t)(x & 0x0FF));  // Memory Write Cursor Horizontal Position Register 0 (CURH0)
@@ -319,7 +313,7 @@ static void ra8875_set_memory_write_cursor(unsigned int x, unsigned int y)
     ra8875_write_cmd(RA8875_REG_CURV1, (uint8_t)(y >> 8));     // Memory Write Cursor Vertical Position Register 1 (CURV1)
 }
 
-static void ra8875_send_buffer(uint8_t * data, size_t length, bool signal_flush)
+void ra8875_send_buffer(uint8_t * data, size_t length, bool signal_flush)
 {
     ESP_LOGI(TAG, "RA8875 device sending a buffer..");
     disp_spi_send_flag_t flags = DISP_SPI_SEND_QUEUED | DISP_SPI_ADDRESS_24;
@@ -327,7 +321,7 @@ static void ra8875_send_buffer(uint8_t * data, size_t length, bool signal_flush)
         flags |= DISP_SPI_SIGNAL_FLUSH;
     }
     const uint64_t prefix = (RA8875_MODE_CMD_WRITE << 16)      // Command write mode
-                          | (RA8875_REG_MRWC << 8)             // Memory Read/Write Command (MRWC)
+    | (RA8875_REG_MRWC << 8)             // Memory Read/Write Command (MRWC)
                           | (RA8875_MODE_DATA_WRITE);          // Data write mode
     disp_spi_transaction(data, length, flags, NULL, prefix, 0); //TODO REVIEW IF I CAN DO IT WITH THE ALINGMENT THAT IS ONLY THE ADDRESS TO SEND THE DATA
 }
