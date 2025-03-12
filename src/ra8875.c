@@ -111,7 +111,6 @@
  **********************/
 static void ra8875_configure_clocks(bool high_speed);
 static void ra8875_set_memory_write_cursor(unsigned int x, unsigned int y);
-static void ra8875_set_window(unsigned int xs, unsigned int xe, unsigned int ys, unsigned int ye);
 static void ra8875_send_buffer(uint8_t * data, size_t length, bool signal_flush);
 
 /**********************
@@ -205,7 +204,6 @@ void ra8875_enable_display(bool enable)
     ra8875_write_cmd(RA8875_REG_PWRR, val);            // Power and Display Control Register (PWRR)
 }
 
-
 void ra8875_set_rotation(int rotation){
     ra8875_sleep_in(); //disable display
     
@@ -235,56 +233,6 @@ void ra8875_set_rotation(int rotation){
     ra8875_write_cmd(RA8875_REG_DPCR, orientation_reg_value); //send command to update value 
     ra8875_sleep_out(); //enable display again
 }
-
-
-// void ra8875_flush(lv_disp_drv_t * drv, const lv_area_t * area, lv_color_t * color_map)
-// {
-//     static lv_coord_t x1 = LV_COORD_MIN;
-//     static lv_coord_t x2 = LV_COORD_MIN;
-//     static lv_coord_t x = LV_COORD_MIN;
-//     static lv_coord_t y = LV_COORD_MIN;
-
-//     size_t linelen = (area->x2 - area->x1 + 1);
-//     uint8_t * buffer = (uint8_t*)color_map;
-
-// #if DEBUG
-//     ESP_LOGI(TAG, "flush: %d,%d at %d,%d", area->x1, area->x2, area->y1, area->y2 );
-// #endif
-
-//     // Get lock
-//     disp_spi_acquire();
-
-//     // Set window if needed
-//     if ((x1 != area->x1) || (x2 != area->x2)) {
-// #if DEBUG
-//         ESP_LOGI(TAG, "flush: set window (x1,x2): %d,%d -> %d,%d", x1, x2, area->x1, area->x2);
-// #endif
-//         ra8875_set_window(area->x1, area->x2, 0, LV_VER_RES_MAX-1);
-//         x1 = area->x1;
-//         x2 = area->x2;
-//     }
-
-//     // Set cursor if needed
-//     if ((x != area->x1) || (y != area->y1)) {
-// #if DEBUG
-//         ESP_LOGI(TAG, "flush: set cursor (x,y): %d,%d -> %d,%d", x, y, area->x1, area->y1);
-// #endif
-//         ra8875_set_memory_write_cursor(area->x1, area->y1);
-//         x = area->x1;
-//     }
-
-//     // Update to future cursor location
-//     y = area->y2 + 1;
-//     if (y >= LV_VER_RES_MAX) {
-//         y = 0;
-//     }
-
-//     // Write data
-//     ra8875_send_buffer(buffer, (area->y2 - area->y1 + 1)*BYTES_PER_PIXEL*linelen, true);
-
-//     // Release lock
-//     disp_spi_release();
-// }
 
 void ra8875_sleep_in(void)
 {
@@ -328,10 +276,6 @@ void ra8875_write_cmd(uint8_t cmd, uint8_t data)
     disp_spi_send_data(buf, sizeof(buf));
 }
 
-/**********************
- *   STATIC FUNCTIONS
- **********************/
-
 void ra8875_configure_clocks(bool high_speed)
 {
     ESP_LOGI(TAG, "RA8875 device configuring clocks...");
@@ -349,7 +293,7 @@ void ra8875_configure_clocks(bool high_speed)
     vTaskDelay( 20 / portTICK_PERIOD_MS);
 }
 
-static void ra8875_set_window(unsigned int xs, unsigned int xe, unsigned int ys, unsigned int ye)
+void ra8875_set_window(unsigned int xs, unsigned int xe, unsigned int ys, unsigned int ye)
 {
     ESP_LOGI(TAG, "RA8875 device setting a window..");
     ra8875_write_cmd(RA8875_REG_HSAW0, (uint8_t)(xs & 0x0FF)); // Horizontal Start Point 0 of Active Window (HSAW0)
@@ -361,6 +305,10 @@ static void ra8875_set_window(unsigned int xs, unsigned int xe, unsigned int ys,
     ra8875_write_cmd(RA8875_REG_VEAW0, (uint8_t)(ye & 0x0FF)); // Vertical End Point of Active Window 0 (VEAW0)
     ra8875_write_cmd(RA8875_REG_VEAW1, (uint8_t)(ye >> 8));    // Vertical End Point of Active Window 1 (VEAW1)
 }
+
+/**********************
+ *   STATIC FUNCTIONS
+ **********************/
 
 static void ra8875_set_memory_write_cursor(unsigned int x, unsigned int y)
 {
