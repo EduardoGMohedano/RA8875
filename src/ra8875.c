@@ -102,6 +102,13 @@
     #define VPWR_VAL (VPW)
 #endif
 
+//CONFIGURATION FOR INTERNAL OR EXTERNAL BACKLIGHT USING PWM CHIP PINS
+#ifdef  CONFIG_BACKLIGHT_INTERNAL
+    #define BACKLIGHT_INTERNAL  1
+#else
+    #define BACKLIGHT_EXTERNAL  1
+#endif
+
 /**********************
  *      TYPEDEFS
  **********************/
@@ -156,7 +163,7 @@ void ra8875_init(void)
     
     // Initialize non-SPI GPIOs
     
-    #if RA8875_USE_RST
+#if RA8875_USE_RST
     ESP_LOGI(TAG, "Sending reset sequence on PIN...");
     gpio_reset_pin(RA8875_RST);
     gpio_set_direction(RA8875_RST, GPIO_MODE_OUTPUT);
@@ -193,6 +200,13 @@ void ra8875_init(void)
 
     // Enable the display
     ra8875_enable_display(true);
+
+#ifdef BACKLIGHT_INTERNAL
+    ra8875_write_cmd(RA8875_GPIOX, 1); //Enable pin attached to GPIOX as output to enable PWM
+    configurePWM(PWM_PIN_1, true, RA8875_PWM_CLK_DIV32);
+    PWMout(PWM_PIN_1, 255);
+#endif
+
 }
 
 void ra8875_enable_display(bool enable)
@@ -324,4 +338,22 @@ void ra8875_send_buffer(uint8_t * data, size_t length, bool signal_flush)
     | (RA8875_REG_MRWC << 8)             // Memory Read/Write Command (MRWC)
                           | (RA8875_MODE_DATA_WRITE);          // Data write mode
     disp_spi_transaction(data, length, flags, NULL, prefix, 0); //TODO REVIEW IF I CAN DO IT WITH THE ALINGMENT THAT IS ONLY THE ADDRESS TO SEND THE DATA
+}
+
+static void configurePWM(uint8_t pwm_pin, bool enable, uint8_t pwm_clock){
+    uint8_t register_pin = (pwm_pin == PWM_PIN_1) ? RA8875_REG_PC1R : RA8875_REG_PC2R;
+    if( enable ){
+        ra8875_write_cmd(register_pin, 0x80 | (pwm_clock & 0xF));
+    }
+    else{
+        ra8875_write_cmd(register_pin, 0x00 | (pwm_clock & 0xF));
+    }
+}
+
+
+static void PWMout(uint8_t pwm_pin, uint8_t duty_cycle){
+    
+    uint8_t register_pin = (pwm_pin == PWM_PIN_1) ? RA8875_REG_P1DCR : RA8875_REG_P2DCR;
+    
+    ra8875_write_cmd(register_pin, duty_cycle);
 }

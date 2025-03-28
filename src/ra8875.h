@@ -35,10 +35,31 @@ extern "C" {
 #endif
 
 //Screen tft configurations
-
 #define CONFIG_LV_DISP_RA8875_PLLDIVM   0 // ranges between 0 - 1
 #define CONFIG_LV_DISP_RA8875_PLLDIVN   7 // ranges between 0 - 31
 #define CONFIG_LV_DISP_RA8875_PLLDIVK   3 
+#define CONFIG_BACKLIGHT_INTERNAL       1
+
+//Internal helper macros
+#define PWM_PIN_1       1
+#define PWM_PIN_2       2
+
+#define RA8875_PWM_CLK_DIV1     0x00    ///< See datasheet
+#define RA8875_PWM_CLK_DIV2     0x01    ///< See datasheet
+#define RA8875_PWM_CLK_DIV4     0x02    ///< See datasheet
+#define RA8875_PWM_CLK_DIV8     0x03    ///< See datasheet
+#define RA8875_PWM_CLK_DIV16    0x04    ///< See datasheet
+#define RA8875_PWM_CLK_DIV32    0x05    ///< See datasheet
+#define RA8875_PWM_CLK_DIV64    0x06    ///< See datasheet
+#define RA8875_PWM_CLK_DIV128   0x07    ///< See datasheet
+#define RA8875_PWM_CLK_DIV256   0x08    ///< See datasheet
+#define RA8875_PWM_CLK_DIV512   0x09    ///< See datasheet
+#define RA8875_PWM_CLK_DIV1024  0x0A    ///< See datasheet
+#define RA8875_PWM_CLK_DIV2048  0x0B    ///< See datasheet
+#define RA8875_PWM_CLK_DIV4096  0x0C    ///< See datasheet
+#define RA8875_PWM_CLK_DIV8192  0x0D    ///< See datasheet
+#define RA8875_PWM_CLK_DIV16384 0x0E    ///< See datasheet
+#define RA8875_PWM_CLK_DIV32768 0x0F    ///< See datasheet
 
 // System & Configuration Registers
 #define RA8875_REG_PWRR   (0x01)     // Power and Display Control Register (PWRR)
@@ -94,6 +115,14 @@ extern "C" {
 #define RA8875_REG_PLLC1  (0x88)     // PLL Control Register 1 (PLLC1)
 #define RA8875_REG_PLLC2  (0x89)     // PLL Control Register 2 (PLLC2)
 
+#define RA8875_REG_PC1R   (0X8A)
+#define RA8875_REG_P1DCR  (0X8B)
+#define RA8875_REG_PC2R   (0X8C)
+#define RA8875_REG_P2DCR  (0X8D)
+
+//GPIO Register
+#define RA8875_GPIOX       (0XC7)
+
 // Memory Clear Register
 #define RA8875_REG_MCLR   (0x8E)     // Memory Clear Control Register (MCLR)
 
@@ -122,6 +151,10 @@ void ra8875_sleep_out(void);
 
 uint8_t ra8875_read_cmd(uint8_t cmd);
 void ra8875_write_cmd(uint8_t cmd, uint8_t data);
+
+//Static functions
+static void configurePWM(uint8_t pwm_pin, bool enable, uint8_t pwm_clock);
+static void PWMout(uint8_t pwm_pin, uint8_t duty_cycle);
 
 /**********************
  *      MACROS
