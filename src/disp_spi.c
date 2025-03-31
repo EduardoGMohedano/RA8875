@@ -24,7 +24,7 @@
 
 #include "disp_spi.h"
 
-const char* TAG = "disp_spi";
+static const char* TAG = "disp_spi";
 
 /*********************
  *      DEFINES
@@ -110,6 +110,16 @@ void disp_spi_send_t(uint8_t data, uint8_t data2, bool read, uint8_t* res){
 
     if(res)
         *res = t.rx_data[1];
+}
+
+
+void disp_spi_send_buffer(uint8_t* data, size_t length){
+    spi_transaction_t t;
+    memset(&t, 0, sizeof(t));       //Zero out the transaction
+    t.length = length*8;            //length in bytes
+    t.tx_buffer = data;
+
+    spi_device_polling_transmit(spi, &t);
 }
 
 /**********************

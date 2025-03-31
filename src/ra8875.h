@@ -61,6 +61,8 @@ extern "C" {
 #define RA8875_PWM_CLK_DIV16384 0x0E    ///< See datasheet
 #define RA8875_PWM_CLK_DIV32768 0x0F    ///< See datasheet
 
+#define RA8875_REG_MWCR0_DIRMASK    0x0C
+
 // System & Configuration Registers
 #define RA8875_REG_PWRR   (0x01)     // Power and Display Control Register (PWRR)
 #define RA8875_REG_MRWC   (0x02)     // Memory Read/Write Command (MRWC)
@@ -142,8 +144,8 @@ uint8_t ra8875_init(void);
 void ra8875_enable_display(bool enable);
 void ra8875_set_rotation(int rotation);
 void ra8875_set_window(uint16_t xs, uint16_t xe, uint16_t ys, uint16_t ye);
-void ra8875_set_memory_write_cursor(unsigned int x, unsigned int y);
-void ra8875_send_buffer(uint8_t * data, size_t length, bool signal_flush);
+void ra8875_set_memory_write_cursor(uint16_t x, uint16_t y);
+void ra8875_send_buffer(uint8_t * data, size_t length);
 // void ra8875_flush(lv_disp_drv_t * drv, const lv_area_t * area, lv_color_t * color_map);
 
 void ra8875_sleep_in(void);

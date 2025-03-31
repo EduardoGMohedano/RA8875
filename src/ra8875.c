@@ -228,7 +228,7 @@ void ra8875_enable_display(bool enable)
 }
 
 void ra8875_set_rotation(int rotation){
-    ra8875_sleep_in(); //disable display
+    // ra8875_sleep_in(); //disable display
     
     uint8_t orientation_reg_value;
     switch(rotation){
@@ -253,8 +253,8 @@ void ra8875_set_rotation(int rotation){
         break;
     }
 
-    ra8875_write_register(RA8875_REG_DPCR, orientation_reg_value); //send command to update value 
-    ra8875_sleep_out(); //enable display again
+    // ra8875_write_register(RA8875_REG_DPCR, orientation_reg_value); //send command to update value TODO, FIX THIS COMMAND WITH MWCR0 DATA
+    // ra8875_sleep_out(); //enable display again
 }
 
 void ra8875_sleep_in(void)
@@ -319,7 +319,9 @@ void ra8875_set_window(uint16_t xs, uint16_t xe, uint16_t ys, uint16_t ye){
     ra8875_write_register(RA8875_REG_VEAW1, (uint8_t)(ye >> 8));    // Vertical End Point of Active Window 1 (VEAW1)
 }
 
-void ra8875_set_memory_write_cursor(unsigned int x, unsigned int y)
+
+// Used to set the cursor at certain position 
+void ra8875_set_memory_write_cursor(uint16_t x, uint16_t y)
 {
     ESP_LOGI(TAG, "RA8875 device setting a write cursor..");
     ra8875_write_register(RA8875_REG_CURH0, (uint8_t)(x & 0x0FF));  // Memory Write Cursor Horizontal Position Register 0 (CURH0)
@@ -328,17 +330,16 @@ void ra8875_set_memory_write_cursor(unsigned int x, unsigned int y)
     ra8875_write_register(RA8875_REG_CURV1, (uint8_t)(y >> 8));     // Memory Write Cursor Vertical Position Register 1 (CURV1)
 }
 
-void ra8875_send_buffer(uint8_t * data, size_t length, bool signal_flush)
+void ra8875_send_buffer(uint8_t * data, size_t length)
 {
-    // ESP_LOGI(TAG, "RA8875 device sending a buffer..");
-    // disp_spi_send_flag_t flags = DISP_SPI_SEND_QUEUED | DISP_SPI_ADDRESS_24;
-    // if (signal_flush) {
-    //     flags |= DISP_SPI_SIGNAL_FLUSH;
-    // }
-    // const uint64_t prefix = (RA8875_MODE_CMD_WRITE << 16)      // Command write mode
-    // | (RA8875_REG_MRWC << 8)             // Memory Read/Write Command (MRWC)
-    //                       | (RA8875_MODE_DATA_WRITE);          // Data write mode
-    // disp_spi_transaction(data, length, flags, NULL, prefix, 0); //TODO REVIEW IF I CAN DO IT WITH THE ALINGMENT THAT IS ONLY THE ADDRESS TO SEND THE DATA
+    ESP_LOGI(TAG, "RA8875 device sending a buffer of transactions");
+
+    uint8_t dir = 0; //fix it to contain rotation value
+    uint8_t curr_val = ra8875_read_register(RA8875_REG_MWCR0); 
+    ra8875_write_register(RA8875_REG_MWCR0, (curr_val & ~RA8875_REG_MWCR0_DIRMASK) | dir);
+    writeCommand(RA8875_REG_MRWC);
+
+    disp_spi_send_buffer(data, length); //TODO REVIEW IF I CAN DO IT WITH THE ALINGMENT THAT IS ONLY THE ADDRESS TO SEND THE DATA
 }
 
 static void configurePWM(uint8_t pwm_pin, bool enable, uint8_t pwm_clock){

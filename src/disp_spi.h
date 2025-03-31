@@ -32,6 +32,7 @@
 
 void disp_spi_init(int clock_speed_hz);
 void disp_spi_send_t(uint8_t data, uint8_t data2, bool read, uint8_t* res);
+void disp_spi_send_buffer(uint8_t* data, size_t length);
 void disp_acquire_bus();
 void disp_release_bus();
 // uint8_t readData(uint8_t reg);
