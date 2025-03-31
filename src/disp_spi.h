@@ -16,7 +16,7 @@
 /*********************
  *      DEFINES
  *********************/
-#define SPI_TFT_CLOCK_SPEED_HZ  (1*1000*1000)
+#define SPI_TFT_CLOCK_SPEED_HZ  (1*100*1000)
 #define TFT_PIN_MISO            (19)
 #define TFT_PIN_MOSI            (23)
 #define TFT_PIN_CLK             (18)
@@ -31,8 +31,9 @@
  **********************/
 
 void disp_spi_init(int clock_speed_hz);
-void disp_spi_send_t(uint8_t data, uint8_t data2, bool read);
-
+void disp_spi_send_t(uint8_t data, uint8_t data2, bool read, uint8_t* res);
+void disp_acquire_bus();
+void disp_release_bus();
 // uint8_t readData(uint8_t reg);
 
 

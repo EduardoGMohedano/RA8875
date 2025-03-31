@@ -138,7 +138,7 @@ extern "C" {
  * GLOBAL PROTOTYPES
  **********************/
 
-void ra8875_init(void);
+uint8_t ra8875_init(void);
 void ra8875_enable_display(bool enable);
 void ra8875_set_rotation(int rotation);
 void ra8875_set_window(uint16_t xs, uint16_t xe, uint16_t ys, uint16_t ye);
@@ -149,9 +149,12 @@ void ra8875_send_buffer(uint8_t * data, size_t length, bool signal_flush);
 void ra8875_sleep_in(void);
 void ra8875_sleep_out(void);
 
-uint8_t ra8875_read_cmd(uint8_t cmd);
 uint8_t ra8875_read_register(uint8_t reg);
-void ra8875_write_cmd(uint8_t cmd, uint8_t data);
+void ra8875_write_register(uint8_t reg, uint8_t value);
+
+void writeCommand(uint8_t d);
+void writeData(uint8_t d);
+uint8_t readData();
 
 //Static functions
 static void configurePWM(uint8_t pwm_pin, bool enable, uint8_t pwm_clock);

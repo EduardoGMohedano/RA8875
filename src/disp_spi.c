@@ -103,6 +103,8 @@ void disp_spi_init(int clock_speed_hz)
         .spics_io_num= TFT_PIN_CS,              // CS pin
         .input_delay_ns= 0 ,
         .queue_size=25,
+        .cs_ena_pretrans = 0,
+        .cs_ena_posttrans = 0,
         .address_bits = 0,
         .command_bits = 0,
         .dummy_bits = 0,
@@ -110,7 +112,7 @@ void disp_spi_init(int clock_speed_hz)
     };
 
     //Initialize the SPI bus
-    esp_err_t bus_ret = spi_bus_initialize(spi_host, &buscfg, SPI_DMA_DISABLED);
+    esp_err_t bus_ret = spi_bus_initialize(spi_host, &buscfg, SPI_DMA_CH_AUTO);
     #ifdef DEBUG
         ESP_LOGI(TAG, "SPI bus init has returned val%d", bus_ret);
         ESP_ERROR_CHECK(bus_ret);
@@ -125,8 +127,7 @@ void disp_spi_init(int clock_speed_hz)
 
 }
 
-void disp_spi_send_t(uint8_t data, uint8_t data2, bool read){
-
+void disp_spi_send_t(uint8_t data, uint8_t data2, bool read, uint8_t* res){
     spi_transaction_t t;
     memset(&t, 0, sizeof(t));       //Zero out the transaction
     t.length = 2*8; //in bytes
@@ -138,22 +139,21 @@ void disp_spi_send_t(uint8_t data, uint8_t data2, bool read){
     t.tx_data[0] = data;
     t.tx_data[1] = data2;
 
-    esp_err_t ret = 0;
-    ret = spi_device_polling_transmit(spi, &t);
-    
-    ESP_LOGI(TAG, "The result of the transaction with polling is %d", ret);
-    
-    if(read){
-        ESP_LOGI(TAG, "Data RCV[0] is %d", t.rx_data[0]);
-        ESP_LOGI(TAG, "Data RCV[1] is %d", t.rx_data[1]);
-        ESP_LOGI(TAG, "Data RCV[2] is %d", t.rx_data[2]);
-        ESP_LOGI(TAG, "Data RCV[3] is %d", t.rx_data[3]);
-    }
+    spi_device_polling_transmit(spi, &t);
 
+    if(res)
+        *res = t.rx_data[1];
 }
 
 /**********************
  *   STATIC FUNCTIONS
  **********************/
 
+void disp_acquire_bus(){
+    spi_device_acquire_bus(spi, portMAX_DELAY);
+}
+
+void disp_release_bus(){
+    spi_device_release_bus(spi);
+}
 
