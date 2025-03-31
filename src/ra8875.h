@@ -25,7 +25,7 @@ extern "C" {
 #else
     #define LV_COLOR_DEPTH  16
     #define LV_HOR_RES_MAX  800
-    #define LV_VER_RES_MAX  400
+    #define LV_VER_RES_MAX  480
 #endif
 
 #define RA8875_USE_RST      1 //Comment to avoid using reset pin
@@ -164,6 +164,14 @@ static void PWMout(uint8_t pwm_pin, uint8_t duty_cycle);
  *      MACROS
  **********************/
 
+
+void fillScreen(uint16_t color);
+void setCursor(uint16_t x, uint16_t y);
+void textTransparent(uint16_t foreColor);
+void textWrite(const char *buffer, uint16_t len);
+void textMode();
+void textEnlarge(uint8_t scale);
+ 
 
 #ifdef __cplusplus
 } /* extern "C" */

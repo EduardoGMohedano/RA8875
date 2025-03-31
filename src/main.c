@@ -32,6 +32,8 @@ void createScreen1(void){
 //   lv_obj_add_event_cb(btn, change_screen_event_cb, LV_EVENT_CLICKED, NULL);
 }
 
+
+
 void app_main() {
 
     // lv_display_t* disp = NULL;
@@ -45,62 +47,21 @@ void app_main() {
     ra8875_init();
     // ra8875_set_rotation(0);
 
-
-    /* Set X */
-    // int x = 0;
-    // ra8875_write_cmd(0x91, x);
-    // ra8875_write_cmd(0x92, x>>8);
-
-    // /* Set Y */
-    // int y = 0;
-    // ra8875_write_cmd(0x93, y);
-    // ra8875_write_cmd(0x94, y>>8);
-
-
-    // /* Set X1 */
-    // int w = 799;
-    // ra8875_write_cmd(0x95, w);
-    // ra8875_write_cmd(0x96, w>>8);
-
-    // /* Set Y1 */
-    // int h = 479;
-    // ra8875_write_cmd(0x97, h);
-    // ra8875_write_cmd(0x98, h>>8);
-
-    // /* Set Color */
-    // int color = 0x0000;
-    // ra8875_write_cmd(0x63, (color & 0xf800) >> 11);
-    // ra8875_write_cmd(0x64, (color & 0x07e0) >> 5);
-    // ra8875_write_cmd(0x65, (color & 0x001f));
     
-    // /* Draw! */
-    // ra8875_write_cmd(0x90, 0xB0);    
-    // vTaskDelay( 450 / portTICK_PERIOD_MS);
-
-    // /* Set Color */
-    // color = 0x001F;
-    // ra8875_write_cmd(0x63, (color & 0xf800) >> 11);
-    // ra8875_write_cmd(0x64, (color & 0x07e0) >> 5);
-    // ra8875_write_cmd(0x65, (color & 0x001f));
     
-    // /* Draw! */
-    // ra8875_write_cmd(0x90, 0xB0);    
-    // vTaskDelay( 450 / portTICK_PERIOD_MS);
-
+    char text[] = "HELLO WORLD!";
+    textMode();
+    vTaskDelay(10 / portTICK_PERIOD_MS); /* let this time pass */
     
-    // /* Set Color */
-    // color = 0xF800;
-    // ra8875_write_cmd(0x63, (color & 0xf800) >> 11);
-    // ra8875_write_cmd(0x64, (color & 0x07e0) >> 5);
-    // ra8875_write_cmd(0x65, (color & 0x001f));
-    
-    // /* Draw! */
-    // ra8875_write_cmd(0x90, 0xB0);    
-    // vTaskDelay( 450 / portTICK_PERIOD_MS);
-
-
-    // while(1){
-    //     // lv_timer_handler(); /* let the GUI do its work */
-    //     vTaskDelay(10 / portTICK_PERIOD_MS); /* let this time pass */
-    // }
+    int pos = 0;
+    while(1){
+      // lv_timer_handler(); /* let the GUI do its work */
+        fillScreen(0x0000);
+        setCursor(pos*5,pos*5);
+        textEnlarge(1);
+        textTransparent(0xFFFF - pos*1000);
+        textWrite(text, sizeof(text));
+        vTaskDelay(150 / portTICK_PERIOD_MS); /* let this time pass */
+        pos++;
+    }
 }

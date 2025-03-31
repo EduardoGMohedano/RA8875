@@ -371,3 +371,106 @@ uint8_t readData(){
 void writeData(uint8_t d){
     disp_spi_send_t(RA8875_MODE_DATA_WRITE, d, false, NULL);
 }
+
+
+//functions used to perform demo only
+void fillScreen(uint16_t color) {
+    // rectHelper(0, 0, _width - 1, _height - 1, color, true);
+
+     /* Set X */
+     int x = 0;
+     ra8875_write_register(0x91, x);
+     ra8875_write_register(0x92, x>>8);
+ 
+     /* Set Y */
+     int y = 0;
+     ra8875_write_register(0x93, y);
+     ra8875_write_register(0x94, y>>8);
+ 
+     /* Set X1 */
+     int w = 799;
+     ra8875_write_register(0x95, w);
+     ra8875_write_register(0x96, w>>8);
+ 
+     /* Set Y1 */
+     int h = 479;
+     ra8875_write_register(0x97, h);
+     ra8875_write_register(0x98, h>>8);
+ 
+     /* Set Color */
+     ra8875_write_register(0x63, (color & 0xf800) >> 11);
+     ra8875_write_register(0x64, (color & 0x07e0) >> 5);
+     ra8875_write_register(0x65, (color & 0x001f));
+     
+     /* Draw! */
+     ra8875_write_register(0x90, 0xB0);    
+     vTaskDelay( 150 / portTICK_PERIOD_MS);
+}
+
+void setCursor(uint16_t x, uint16_t y){
+    /* Set cursor location */
+    writeCommand(0x2A);
+    writeData(x & 0xFF);
+    writeCommand(0x2B);
+    writeData(x >> 8);
+    writeCommand(0x2C);
+    writeData(y & 0xFF);
+    writeCommand(0x2D);
+    writeData(y >> 8);
+}
+  
+void textTransparent(uint16_t foreColor) {
+    /* Set Fore Color */
+    writeCommand(0x63);
+    writeData((foreColor & 0xf800) >> 11);
+    writeCommand(0x64);
+    writeData((foreColor & 0x07e0) >> 5);
+    writeCommand(0x65);
+    writeData((foreColor & 0x001f));
+
+    /* Set transparency flag */
+    writeCommand(0x22);
+    uint8_t temp = readData();
+    temp |= (1 << 6); // Set bit 6
+    writeData(temp);
+}
+  
+void textWrite(const char *buffer, uint16_t len) {
+    if (len == 0)
+      len = sizeof(buffer);
+    writeCommand(0x02);
+    for (uint16_t i = 0; i < len; i++)
+      writeData(buffer[i]);
+  
+    vTaskDelay(10);
+}
+  
+void textMode() {
+    /* Set text mode */
+    writeCommand(0x40);
+    uint8_t temp = readData();
+    temp |= 0x80; // Set bit 7
+    writeData(temp);
+  
+    /* Select the internal (ROM) font*/
+    writeCommand(0x21);
+    temp = readData();
+    temp &= ~((1 << 7) | (1 << 5)); // Clear bits 7 and 5
+    writeData(temp);
+}
+
+void textEnlarge(uint8_t scale) {
+    if (scale > 3)
+      scale = 3; // highest setting is 3
+  
+    /* Set font size flags */
+    writeCommand(0x22);
+    uint8_t temp = readData();
+    temp &= ~(0xF); // Clears bits 0..3
+    temp |= scale << 2;
+    temp |= scale;
+  
+    writeData(temp);
+  
+    // _textScale = scale;
+  }
