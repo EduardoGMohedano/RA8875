@@ -12,9 +12,9 @@
 #include "esp_log.h"
 
 #include <string.h>
-#include <freertos/FreeRTOS.h>
-#include <freertos/semphr.h>
-#include <freertos/task.h>
+// #include <freertos/FreeRTOS.h>
+// #include <freertos/semphr.h>
+// #include <freertos/task.h>
 
 // #ifdef LV_LVGL_H_INCLUDE_SIMPLE
 // #include "lvgl.h"
@@ -24,7 +24,7 @@
 
 #include "disp_spi.h"
 
-#define TAG "disp_spi"
+const char* TAG = "disp_spi";
 /******************************************************************************
  * Notes about DMA spi_transaction_ext_t structure pooling
  * 
@@ -64,27 +64,16 @@
  *********************/
 #define SPI_TRANSACTION_POOL_SIZE 50	/* maximum number of DMA transactions simultaneously in-flight */
 
-/* DMA Transactions to reserve before queueing additional DMA transactions. A 1/10th seems to be a good balance. Too many (or all) and it will increase latency. */
-#define SPI_TRANSACTION_POOL_RESERVE_PERCENTAGE 10
-#if SPI_TRANSACTION_POOL_SIZE >= SPI_TRANSACTION_POOL_RESERVE_PERCENTAGE
-#define SPI_TRANSACTION_POOL_RESERVE (SPI_TRANSACTION_POOL_SIZE / SPI_TRANSACTION_POOL_RESERVE_PERCENTAGE)	
-#else
-#define SPI_TRANSACTION_POOL_RESERVE 1	/* defines minimum size */
-#endif
-
 /**********************
  *  STATIC PROTOTYPES
  **********************/
-static void IRAM_ATTR spi_ready (spi_transaction_t *trans);
 
 /**********************
  *  STATIC VARIABLES
  **********************/
-static spi_host_device_t spi_host;
+static spi_host_device_t spi_host = SPI2_HOST;
 static spi_device_handle_t spi;
-static QueueHandle_t TransactionPool = NULL;
-static transaction_cb_t chained_post_cb;
-static bool bus_ready = false;
+
 
 /**********************
  *      MACROS
@@ -93,266 +82,78 @@ static bool bus_ready = false;
 /**********************
  *   GLOBAL FUNCTIONS
  **********************/
-void disp_spi_add_device_config(spi_host_device_t host, spi_device_interface_config_t *devcfg)
-{
-    spi_host=host;
-    chained_post_cb=devcfg->post_cb;
-    devcfg->post_cb=spi_ready;
-    esp_err_t ret=spi_bus_add_device(host, devcfg, &spi);
 
-    #ifdef DEBUG
-        ESP_LOG_INFO(TAG, "SPI bus after adding a new device %d", ret);
-    #endif
 
-    assert(ret==ESP_OK);
-}
-
-void disp_spi_add_device(spi_host_device_t host)
-{
-    disp_spi_add_device_with_speed(host, SPI_TFT_CLOCK_SPEED_HZ);
-}
-
-void disp_spi_add_device_with_speed(spi_host_device_t host, int clock_speed_hz)
+void disp_spi_init(int clock_speed_hz)
 {
     ESP_LOGI(TAG, "Adding SPI device with speed %d", clock_speed_hz);
 
-    if(!bus_ready){
-        spi_bus_config_t buscfg = {
-            .miso_io_num = TFT_PIN_MISO,
-            .mosi_io_num = TFT_PIN_MOSI,
-            .sclk_io_num = TFT_PIN_CLK,
-            .quadwp_io_num = -1,
-            .quadhd_io_num = -1,
-            .max_transfer_sz = 0,
-        };
-        //Initialize the SPI bus
-        esp_err_t bus_ret = spi_bus_initialize(host, &buscfg, SPI_DMA_CH_AUTO);
-        bus_ready = true;
-        #ifdef DEBUG
-            ESP_LOG_INFO(TAG, "SPI bus init has returned val%d", bus_ret);
-        #endif
-    }
-
+    spi_bus_config_t buscfg = {
+        .miso_io_num = TFT_PIN_MISO,
+        .mosi_io_num = TFT_PIN_MOSI,
+        .sclk_io_num = TFT_PIN_CLK,
+        .quadwp_io_num = -1,
+        .quadhd_io_num = -1,
+        .max_transfer_sz = 10,
+    };
 
     spi_device_interface_config_t devcfg={
         .clock_speed_hz = clock_speed_hz,
         .mode = 0,
         .spics_io_num= TFT_PIN_CS,              // CS pin
         .input_delay_ns= 0 ,
-        .queue_size=SPI_TRANSACTION_POOL_SIZE,
-        .pre_cb=NULL,
-        .post_cb=NULL,
-#if defined(TFT_SPI_HALF_DUPLEX)
-        .flags = SPI_DEVICE_NO_DUMMY | SPI_DEVICE_HALFDUPLEX,	/* dummy bits should be explicitly handled via DISP_SPI_VARIABLE_DUMMY as needed */
-#else
-        .flags = SPI_DEVICE_NO_DUMMY,	
-#endif
+        .queue_size=25,
+        .address_bits = 0,
+        .command_bits = 0,
+        .dummy_bits = 0,
+        .flags = 0
     };
 
-    disp_spi_add_device_config(host, &devcfg);
-
-	/* create the transaction pool and fill it with ptrs to spi_transaction_ext_t to reuse */
-	if(TransactionPool == NULL) {
-		TransactionPool = xQueueCreate(SPI_TRANSACTION_POOL_SIZE, sizeof(spi_transaction_ext_t*));
-        #ifdef DEBUG
-            ESP_LOG_INFO(TAG, "SPI config creating a new transaction pool");
-        #endif
-		assert(TransactionPool != NULL);
-
-		for (size_t i = 0; i < SPI_TRANSACTION_POOL_SIZE; i++)
-		{
-			spi_transaction_ext_t* pTransaction = (spi_transaction_ext_t*)heap_caps_malloc(sizeof(spi_transaction_ext_t), MALLOC_CAP_DMA);
-			assert(pTransaction != NULL);
-			memset(pTransaction, 0, sizeof(spi_transaction_ext_t));
-			xQueueSend(TransactionPool, &pTransaction, portMAX_DELAY);
+    //Initialize the SPI bus
+    esp_err_t bus_ret = spi_bus_initialize(spi_host, &buscfg, SPI_DMA_DISABLED);
+    #ifdef DEBUG
+        ESP_LOGI(TAG, "SPI bus init has returned val%d", bus_ret);
+        ESP_ERROR_CHECK(bus_ret);
+    #endif
         
-        }
-        #ifdef DEBUG
-            ESP_LOG_INFO(TAG, "SPI bus after creating %d transactions successfully", SPI_TRANSACTION_POOL_SIZE);
-        #endif
-	}
-}
-
-void disp_spi_change_device_speed(int clock_speed_hz)
-{
-    if (clock_speed_hz <= 0) {
-        clock_speed_hz = SPI_TFT_CLOCK_SPEED_HZ;
-    }
-    #ifdef DEBUG
-        ESP_LOGI(TAG, "Changing SPI device clock speed: %d", clock_speed_hz);
-    #endif
-    disp_spi_remove_device();
-    disp_spi_add_device_with_speed(spi_host, clock_speed_hz);
-}
-
-void disp_spi_remove_device()
-{
-    /* Wait for previous pending transaction results */
-    disp_wait_for_pending_transactions();
-
-    esp_err_t ret=spi_bus_remove_device(spi);
+        bus_ret = spi_bus_add_device(spi_host, &devcfg, &spi);
+        ESP_ERROR_CHECK(bus_ret);
 
     #ifdef DEBUG
-        ESP_LOG_INFO(TAG, "SPI bus after removing the device returned %d", ret);
-    #endif
-    assert(ret==ESP_OK);
-}
-
-void disp_spi_transaction(const uint8_t *data, size_t length, disp_spi_send_flag_t flags, uint8_t *out, uint64_t addr, uint8_t dummy_bits)
-{
-    if (0 == length) {
-        return;
-    }
-
-    spi_transaction_ext_t t = {0};
-
-    /* transaction length is in bits */
-    t.base.length = length * 8;
-
-    if (length <= 4 && data != NULL) {
-        t.base.flags = SPI_TRANS_USE_TXDATA;
-        memcpy(t.base.tx_data, data, length);
-    } else {
-        t.base.tx_buffer = data;
-    }
-
-    if (flags & DISP_SPI_RECEIVE) {
-        assert(out != NULL && (flags & (DISP_SPI_SEND_POLLING | DISP_SPI_SEND_SYNCHRONOUS)));
-        t.base.rx_buffer = out;
-
-#if defined(TFT_SPI_HALF_DUPLEX)
-		t.base.rxlength = t.base.length;
-		t.base.length = 0;	/* no MOSI phase in half-duplex reads */
-#else
-		t.base.rxlength = 0; /* in full-duplex mode, zero means same as tx length */
-#endif
-    }
-
-    if (flags & DISP_SPI_ADDRESS_8) {
-        t.address_bits = 8;
-    } else if (flags & DISP_SPI_ADDRESS_16) {
-        t.address_bits = 16;
-    } else if (flags & DISP_SPI_ADDRESS_24) {
-        t.address_bits = 24;
-    } else if (flags & DISP_SPI_ADDRESS_32) {
-        t.address_bits = 32;
-    }
-    if (t.address_bits) {
-        t.base.addr = addr;
-        t.base.flags |= SPI_TRANS_VARIABLE_ADDR;
-    }
-
-#if defined(TFT_SPI_HALF_DUPLEX)
-	if (flags & DISP_SPI_MODE_DIO) {
-		t.base.flags |= SPI_TRANS_MODE_DIO;
-	} else if (flags & DISP_SPI_MODE_QIO) {
-		t.base.flags |= SPI_TRANS_MODE_QIO;
-	}
-
-	if (flags & DISP_SPI_MODE_DIOQIO_ADDR) {
-		t.base.flags |= SPI_TRANS_MODE_DIOQIO_ADDR;
-	}
-
-	if ((flags & DISP_SPI_VARIABLE_DUMMY) && dummy_bits) {
-		t.dummy_bits = dummy_bits;
-		t.base.flags |= SPI_TRANS_VARIABLE_DUMMY;
-	}
-#endif
-
-    /* Save flags for pre/post transaction processing */
-    t.base.user = (void *) flags;
-
-    /* Poll/Complete/Queue transaction */
-    if (flags & DISP_SPI_SEND_POLLING) {
-		disp_wait_for_pending_transactions();	/* before polling, all previous pending transactions need to be serviced */
-        spi_device_polling_transmit(spi, (spi_transaction_t *) &t);
-    } else if (flags & DISP_SPI_SEND_SYNCHRONOUS) {
-		disp_wait_for_pending_transactions();	/* before synchronous queueing, all previous pending transactions need to be serviced */
-        spi_device_transmit(spi, (spi_transaction_t *) &t);
-    } else {
-		/* if necessary, ensure we can queue new transactions by servicing some previous transactions */
-		if(uxQueueMessagesWaiting(TransactionPool) == 0) {
-			spi_transaction_t *presult;
-			while(uxQueueMessagesWaiting(TransactionPool) < SPI_TRANSACTION_POOL_RESERVE) {
-				if (spi_device_get_trans_result(spi, &presult, 1) == ESP_OK) {
-					xQueueSend(TransactionPool, &presult, portMAX_DELAY);	/* back to the pool to be reused */
-				}
-			}
-		}
-
-		spi_transaction_ext_t *pTransaction = NULL;
-		xQueueReceive(TransactionPool, &pTransaction, portMAX_DELAY);
-        memcpy(pTransaction, &t, sizeof(t));
-        if (spi_device_queue_trans(spi, (spi_transaction_t *) pTransaction, portMAX_DELAY) != ESP_OK) {
-			xQueueSend(TransactionPool, &pTransaction, portMAX_DELAY);	/* send failed transaction back to the pool to be reused */
-        }
-    }
-}
-
-
-void disp_wait_for_pending_transactions(void)
-{
-    spi_transaction_t *presult;
-
-    #ifdef DEBUG
-        ESP_LOG_INFO(TAG, "SPI bus waiting for pending transactions ");
+        ESP_LOGI(TAG, "SPI bus after adding a new device %d", bus_ret);
     #endif
 
-	while(uxQueueMessagesWaiting(TransactionPool) < SPI_TRANSACTION_POOL_SIZE) {	/* service until the transaction reuse pool is full again */
-        if (spi_device_get_trans_result(spi, &presult, 1) == ESP_OK) {
-			xQueueSend(TransactionPool, &presult, portMAX_DELAY);
-        }
+}
+
+void disp_spi_send_t(uint8_t data, uint8_t data2, bool read){
+
+    spi_transaction_t t;
+    memset(&t, 0, sizeof(t));       //Zero out the transaction
+    t.length = 2*8; //in bytes
+    t.flags = SPI_TRANS_USE_TXDATA;
+    if(read){
+        t.flags |= SPI_TRANS_USE_RXDATA;
+        t.rxlength = 1*8;
     }
-}
+    t.tx_data[0] = data;
+    t.tx_data[1] = data2;
 
-void disp_spi_acquire(void)
-{
-    esp_err_t ret = spi_device_acquire_bus(spi, portMAX_DELAY);
-    assert(ret == ESP_OK);
+    esp_err_t ret = 0;
+    ret = spi_device_polling_transmit(spi, &t);
+    
+    ESP_LOGI(TAG, "The result of the transaction with polling is %d", ret);
+    
+    if(read){
+        ESP_LOGI(TAG, "Data RCV[0] is %d", t.rx_data[0]);
+        ESP_LOGI(TAG, "Data RCV[1] is %d", t.rx_data[1]);
+        ESP_LOGI(TAG, "Data RCV[2] is %d", t.rx_data[2]);
+        ESP_LOGI(TAG, "Data RCV[3] is %d", t.rx_data[3]);
+    }
 
-    #ifdef DEBUG
-        ESP_LOG_INFO(TAG, "SPI bus is acquired");
-    #endif
-}
-
-void disp_spi_release(void)
-{
-    spi_device_release_bus(spi);
-    #ifdef DEBUG
-        ESP_LOG_INFO(TAG, "SPI bus is released");
-    #endif
 }
 
 /**********************
  *   STATIC FUNCTIONS
  **********************/
-
-static void spi_ready(spi_transaction_t *trans)
-{
-    disp_spi_send_flag_t flags = (disp_spi_send_flag_t) trans->user;
-
-    flags+= 2;
-
-    // if (flags & DISP_SPI_SIGNAL_FLUSH) {
-    //     lv_display_t * disp = NULL;
-
-// #if (LVGL_VERSION_MAJOR >= 7)
-//         disp = _lv_refr_get_disp_refreshing();
-// #else /* Before v7 */
-//         disp = lv_refr_get_disp_refreshing();
-// #endif
-
-// #if LVGL_VERSION_MAJOR < 8
-//         lv_disp_flush_ready(&disp->driver);
-// #else
-//         lv_display_flush_ready(disp);
-// #endif
-
-    // }
-
-    if (chained_post_cb) {
-        chained_post_cb(trans);
-    }
-}
 
 

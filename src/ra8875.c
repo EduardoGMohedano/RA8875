@@ -16,7 +16,7 @@
 /*********************
  *      DEFINES
  *********************/
-#define DEBUG false
+
 #define TAG "RA8875"
 
 #define SPI_CLOCK_SPEED_SLOW_HZ 1000000
@@ -79,8 +79,8 @@
     #define HNDFTR_VAL (HNDFT)
 #endif
 
-#define CONFIG_LV_DISP_RA8875_HSYNC_START   8   //range 8 - 256
-#define CONFIG_LV_DISP_RA8875_HSYNC_PW      8
+#define CONFIG_LV_DISP_RA8875_HSYNC_START   32   //range 8 - 256
+#define CONFIG_LV_DISP_RA8875_HSYNC_PW      96
 #define HSTR_VAL (CONFIG_LV_DISP_RA8875_HSYNC_START/8 - 1) //used to configure start position of hsync
 #define HPW (CONFIG_LV_DISP_RA8875_HSYNC_PW/8 - 1)          //used to configure hsync pulse
 #if LVGL_DISP_RA8875_HSYNC_POLARITY
@@ -90,9 +90,9 @@
 #endif
 
 // Calculate vertical display parameters
-#define CONFIG_LV_DISP_RA8875_VERT_NON_DISP_PERIOD  8
-#define CONFIG_LV_DISP_RA8875_VSYNC_START           8
-#define CONFIG_LV_DISP_RA8875_VSYNC_PW              8
+#define CONFIG_LV_DISP_RA8875_VERT_NON_DISP_PERIOD  32
+#define CONFIG_LV_DISP_RA8875_VSYNC_START           23
+#define CONFIG_LV_DISP_RA8875_VSYNC_PW              2
 #define VNDR_VAL (CONFIG_LV_DISP_RA8875_VERT_NON_DISP_PERIOD - 1)
 #define VSTR_VAL (CONFIG_LV_DISP_RA8875_VSYNC_START - 1)
 #define VPW (CONFIG_LV_DISP_RA8875_VSYNC_PW - 1)
@@ -139,9 +139,10 @@ void ra8875_init(void)
         uint8_t data;                                  // Value to write to register
     } init_cmds[] = {
         {RA8875_REG_SYSR,   SYSR_VAL},                 // System Configuration Register (SYSR)
+        {RA8875_REG_PCSR,   0x81},
         {RA8875_REG_HDWR,   HDWR_VAL},                 // LCD Horizontal Display Width Register (HDWR)
         {RA8875_REG_HNDFTR, HNDFTR_VAL},               // Horizontal Non-Display Period Fine Tuning Option Register (HNDFTR)
-        {RA8875_REG_HNDR,   HNDR_VAL},                 // Horizontal Non-Display Period Register (HNDR)
+        {RA8875_REG_HNDR,   HNDR_VAL},                 // Horizontal Non-Display Period Register (HNDR) TODO CORRECT FORMULA COULD BE 3 BY DEFA
         {RA8875_REG_HSTR,   HSTR_VAL},                 // HSYNC Start Position Register (HSTR)
         {RA8875_REG_HPWR,   HPWR_VAL},                 // HSYNC Pulse Width Register (HPWR)
         {RA8875_REG_VDHR0,  VDHR_VAL & 0x0FF},         // LCD Vertical Display Height Register (VDHR0)
@@ -150,14 +151,16 @@ void ra8875_init(void)
         {RA8875_REG_VNDR1,  VNDR_VAL >> 8},            // LCD Vertical Non-Display Period Register (VNDR1)
         {RA8875_REG_VSTR0,  VSTR_VAL & 0x0FF},         // VSYNC Start Position Register (VSTR0)
         {RA8875_REG_VSTR1,  VSTR_VAL >> 8},            // VSYNC Start Position Register (VSTR1)
-        {RA8875_REG_VPWR,   VPWR_VAL},                 // VSYNC Pulse Width Register (VPWR)
-        {RA8875_REG_DPCR,   DPCR_VAL},                 // Display Configuration Register (DPCR)
-        {RA8875_REG_MWCR0,  0x00},                     // Memory Write Control Register 0 (MWCR0) //TODO MAY NEED TO MODIFY FOR ROTATION
-        {RA8875_REG_MWCR1,  0x00},                     // Memory Write Control Register 1 (MWCR1)
-        {RA8875_REG_LTPR0,  0x00},                     // Layer Transparency Register0 (LTPR0) //LAYER1 ENABLED
-        {RA8875_REG_LTPR1,  0x00},                     // Layer Transparency Register1 (LTPR1) //TRANSPARENCY FOR EACH DISPLAY
+        {RA8875_REG_VPWR,   VPWR_VAL}                 // VSYNC Pulse Width Register (VPWR)
+        //THESE COMMANDS ARE SENDING THE SAME VALUES AS DEFAULT VAL AFTER A RESET SO NO NEED THEM
+        // {RA8875_REG_DPCR,   DPCR_VAL},                 // Display Configuration Register (DPCR)
+        // {RA8875_REG_MWCR0,  0x00},                     // Memory Write Control Register 0 (MWCR0) //TODO MAY NEED TO MODIFY FOR ROTATION
+        // {RA8875_REG_MWCR1,  0x00},                     // Memory Write Control Register 1 (MWCR1)
+        // {RA8875_REG_LTPR0,  0x00},                     // Layer Transparency Register0 (LTPR0) //LAYER1 ENABLED
+        // {RA8875_REG_LTPR1,  0x00},                     // Layer Transparency Register1 (LTPR1) //TRANSPARENCY FOR EACH DISPLAY
     };
-    #define INIT_CMDS_SIZE (sizeof(init_cmds)/sizeof(init_cmds[0]))
+    
+    uint8_t INIT_CMDS_SIZE  = sizeof(init_cmds)/sizeof(init_cmds[0]);
 
     ESP_LOGI(TAG, "Initializing RA8875...");
     
@@ -167,6 +170,7 @@ void ra8875_init(void)
     ESP_LOGI(TAG, "Sending reset sequence on PIN...");
     gpio_reset_pin(RA8875_RST);
     gpio_set_direction(RA8875_RST, GPIO_MODE_OUTPUT);
+    gpio_pullup_dis(RA8875_RST);
 
     // Reset the RA8875
     gpio_set_level(RA8875_RST, 0);
@@ -175,44 +179,54 @@ void ra8875_init(void)
     vTaskDelay( 100 / portTICK_PERIOD_MS);
 #endif
 
-    // Initalize RA8875 clocks (SPI must be decelerated before initializing clocks)
-    disp_spi_add_device_with_speed(SPI2_HOST, SPI_TFT_CLOCK_SPEED_HZ);
-    disp_spi_change_device_speed(SPI_CLOCK_SPEED_SLOW_HZ);
-    ra8875_configure_clocks(true);
-    disp_spi_change_device_speed(SPI_TFT_CLOCK_SPEED_HZ);
-
-    // Send all the commands to init the display
-    for (i = 0; i < INIT_CMDS_SIZE; i++) {
-        ra8875_write_cmd(init_cmds[i].cmd, init_cmds[i].data);
+    disp_spi_init(SPI_TFT_CLOCK_SPEED_HZ);
+    
+    if ( ra8875_read_register(0x00) != 0x75 ){
+        ESP_LOGE(TAG, "RA8875 SCREEN NOT FOUND");
+        return;
     }
+    
+    //Initialize PLL clocks
+//     ra8875_configure_clocks(true);
 
-    // Perform a memory clear (wait maximum of 100 ticks)
-    ra8875_write_cmd(RA8875_REG_MCLR, 0x80);
-    for(i = 100; i != 0; i--) {
-        if ((ra8875_read_cmd(RA8875_REG_MCLR) & 0x80) == 0x00) {
-            break;
-        }
-        vTaskDelay(1);
-    }
-    if (i == 0) {
-        ESP_LOGW(TAG, "WARNING: Memory clear timed out; RA8875 may be unresponsive.");
-    }
+//     // Send all the commands to init the display
+//     for (i = 0; i < INIT_CMDS_SIZE; i++) {
+//         ra8875_write_cmd(init_cmds[i].cmd, init_cmds[i].data);
+//     }
 
-    // Enable the display
-    ra8875_enable_display(true);
+//     //Set window area for the first time
+//     ra8875_set_window(0, LV_HOR_RES_MAX, 0, LV_VER_RES_MAX);
 
-#ifdef BACKLIGHT_INTERNAL
-    ra8875_write_cmd(RA8875_GPIOX, 1); //Enable pin attached to GPIOX as output to enable PWM
-    configurePWM(PWM_PIN_1, true, RA8875_PWM_CLK_DIV32);
-    PWMout(PWM_PIN_1, 255);
-#endif
+//     // Perform a memory clear (wait maximum of 100 ticks)
+//     ra8875_write_cmd(RA8875_REG_MCLR, 0x80);
+//     for(i = 100; i != 0; i--) {
+//         if ((ra8875_read_cmd(RA8875_REG_MCLR) & 0x80) == 0x00) {
+//             ESP_LOGI(TAG, "WAITING for Memory clear to be finished...");
+//             break;
+//         }
+//         vTaskDelay(10);
+//     }
+//     if (i == 0) {
+//         ESP_LOGW(TAG, "WARNING: Memory clear timed out; RA8875 may be unresponsive.");
+//     }
+    
+//     vTaskDelay(250 / portTICK_PERIOD_MS);
+
+//     // Enable the display
+//     ra8875_enable_display(true);
+
+// #ifdef BACKLIGHT_INTERNAL
+//     ra8875_write_cmd(RA8875_GPIOX, 1); //Enable pin attached to GPIOX as output to enable PWM
+//     configurePWM(PWM_PIN_1, true, RA8875_PWM_CLK_DIV32);
+//     PWMout(PWM_PIN_1, 255);
+// #endif
 
 }
 
 void ra8875_enable_display(bool enable)
 {
     ESP_LOGI(TAG, "%s display.", enable ? "Enabling" : "Disabling");
-    uint8_t val = enable ? (0x80) : (0x00);
+    uint8_t val = enable ? 0x80 : 0x00;
     ra8875_write_cmd(RA8875_REG_PWRR, val);            // Power and Display Control Register (PWRR)
 }
 
@@ -249,8 +263,6 @@ void ra8875_set_rotation(int rotation){
 void ra8875_sleep_in(void)
 {
     ESP_LOGI(TAG, "Device about to be sent to sleep...");
-    disp_spi_change_device_speed(SPI_CLOCK_SPEED_SLOW_HZ);
-
     ra8875_configure_clocks(false);
 
     ra8875_write_cmd(RA8875_REG_PWRR, 0x00);           // Power and Display Control Register (PWRR)
@@ -266,26 +278,69 @@ void ra8875_sleep_out(void)
 
     ra8875_configure_clocks(true);
 
-    disp_spi_change_device_speed(-1);
-
     ra8875_write_cmd(RA8875_REG_PWRR, 0x80);           // Power and Display Control Register (PWRR)
     vTaskDelay( 20 / portTICK_PERIOD_MS);
+}
+
+uint8_t ra8875_read_register(uint8_t reg){
+ 
+    ESP_LOGI(TAG, "Device read register %02X triggered...", reg);
+    uint8_t rcv_buf[4] = {0,0,0,0};
+    //   writeCommand(reg);
+    //open 
+    //   SPI.transfer(RA8875_CMDWRITE);
+    //   SPI.transfer(d);
+    // //release cs line
+    // uint8_t buf1[] = {RA8875_MODE_CMD_WRITE, reg};
+
+    // //   return readData();
+    //   //open
+    //   SPI.transfer(RA8875_DATAREAD);
+    //   uint8_t x = SPI.transfer(0x0);
+      //close cs line
+    // uint8_t buf2[] = {RA8875_MODE_DATA_READ, 0x00}; 
+    
+    disp_spi_send_t((uint8_t)RA8875_MODE_CMD_WRITE, reg, false);
+    disp_spi_send_t((uint8_t)RA8875_MODE_DATA_READ, 0, true);
+    // poll_transaction(buf2, 0, rcv_buf); //could rcv_buf have issues if DMA is enabled??
+    
+
+    // ESP_LOGI(TAG,"Data rcv[0] is %d", rcv_buf[0]);
+    // ESP_LOGI(TAG,"Data rcv[1] is %d", rcv_buf[1]);
+    // ESP_LOGI(TAG,"Data rcv[2] is %d", rcv_buf[2]);
+    // ESP_LOGI(TAG,"Data rcv[3] is %d", rcv_buf[3]);
+
+    return rcv_buf[1];
 }
 
 uint8_t ra8875_read_cmd(uint8_t cmd)
 {
     ESP_LOGI(TAG, "Device read command triggered ");
-    uint8_t buf[4] = {RA8875_MODE_CMD_WRITE, cmd, RA8875_MODE_DATA_READ, 0x00};
-    disp_spi_transaction(buf, sizeof(buf), (disp_spi_send_flag_t)(DISP_SPI_RECEIVE | DISP_SPI_SEND_POLLING), buf, 0, 0);
-    ESP_LOGI(TAG,"Data rcv is %d", buf[3]);
-    return buf[3];
+    uint8_t rcv_buf[2] = {0,0};
+    uint8_t buf1[] = {RA8875_MODE_CMD_WRITE, cmd};
+    uint8_t buf2[] = {RA8875_MODE_DATA_READ, 0x00}; //last two are dummy data
+
+
+    // poll_transaction(buf1, 2, NULL);
+    // poll_transaction(buf2, 2, rcv_buf); //could rcv_buf have issues if DMA is enabled??
+
+    // disp_spi_transaction(buf1, sizeof(buf1), (disp_spi_send_flag_t)(DISP_SPI_RECEIVE | DISP_SPI_SEND_POLLING), rcv_buf, 0, 0);
+    // disp_spi_transaction(buf2, sizeof(buf2), (disp_spi_send_flag_t)(DISP_SPI_RECEIVE | DISP_SPI_SEND_POLLING), rcv_buf, 0, 0);
+
+    // ESP_LOGI(TAG,"Data rcv[2] is %d", rcv_buf[2]);
+    // ESP_LOGI(TAG,"Data rcv[3] is %d", rcv_buf[3]);
+
+    
+    return rcv_buf[1];
 }
 
 void ra8875_write_cmd(uint8_t cmd, uint8_t data)
 {
-    ESP_LOGI(TAG, "Device write command triggered ");
-    uint8_t buf[4] = {RA8875_MODE_CMD_WRITE, cmd, RA8875_MODE_DATA_WRITE, data};
-    disp_spi_send_data(buf, sizeof(buf));
+    // ESP_LOGI(TAG, "Device write command triggered ");
+    // uint8_t buf1[4] = {RA8875_MODE_CMD_WRITE, cmd, 0, 0};
+    // uint8_t buf2[4] = {0,0 , RA8875_MODE_DATA_WRITE, data};
+    // disp_spi_send_data(buf1, sizeof(buf1));
+    // disp_spi_send_data(buf2, sizeof(buf2));
 }
 
 void ra8875_configure_clocks(bool high_speed)
@@ -295,26 +350,22 @@ void ra8875_configure_clocks(bool high_speed)
     
     val = high_speed ? ((CONFIG_LV_DISP_RA8875_PLLDIVM << 7) | CONFIG_LV_DISP_RA8875_PLLDIVN) : 0x07;
     ra8875_write_cmd(RA8875_REG_PLLC1, val);           // PLL Control Register 1 (PLLC1)
-    vTaskDelay(1);
+    vTaskDelay(5 / portTICK_PERIOD_MS);
     
     val = high_speed ? CONFIG_LV_DISP_RA8875_PLLDIVK : 0x03;
     ra8875_write_cmd(RA8875_REG_PLLC2, val);           // PLL Control Register 2 (PLLC2)
-    vTaskDelay(1);
-    
-    ra8875_write_cmd(RA8875_REG_PCSR, PCSR_VAL);            // Pixel Clock Setting Register (PCSR)
-    vTaskDelay( 20 / portTICK_PERIOD_MS);
+    vTaskDelay(5 / portTICK_PERIOD_MS);
 }
 
-void ra8875_set_window(unsigned int xs, unsigned int xe, unsigned int ys, unsigned int ye)
-{
+void ra8875_set_window(uint16_t xs, uint16_t xe, uint16_t ys, uint16_t ye){
     ESP_LOGI(TAG, "RA8875 device setting a window..");
-    ra8875_write_cmd(RA8875_REG_HSAW0, (uint8_t)(xs & 0x0FF)); // Horizontal Start Point 0 of Active Window (HSAW0)
+    ra8875_write_cmd(RA8875_REG_HSAW0, (uint8_t)(xs & 0x00FF)); // Horizontal Start Point 0 of Active Window (HSAW0)
     ra8875_write_cmd(RA8875_REG_HSAW1, (uint8_t)(xs >> 8));    // Horizontal Start Point 1 of Active Window (HSAW1)
-    ra8875_write_cmd(RA8875_REG_VSAW0, (uint8_t)(ys & 0x0FF)); // Vertical Start Point 0 of Active Window (VSAW0)
+    ra8875_write_cmd(RA8875_REG_VSAW0, (uint8_t)(ys & 0x00FF)); // Vertical Start Point 0 of Active Window (VSAW0)
     ra8875_write_cmd(RA8875_REG_VSAW1, (uint8_t)(ys >> 8));    // Vertical Start Point 1 of Active Window (VSAW1)
-    ra8875_write_cmd(RA8875_REG_HEAW0, (uint8_t)(xe & 0x0FF)); // Horizontal End Point 0 of Active Window (HEAW0)
+    ra8875_write_cmd(RA8875_REG_HEAW0, (uint8_t)(xe & 0x00FF)); // Horizontal End Point 0 of Active Window (HEAW0)
     ra8875_write_cmd(RA8875_REG_HEAW1, (uint8_t)(xe >> 8));    // Horizontal End Point 1 of Active Window (HEAW1)
-    ra8875_write_cmd(RA8875_REG_VEAW0, (uint8_t)(ye & 0x0FF)); // Vertical End Point of Active Window 0 (VEAW0)
+    ra8875_write_cmd(RA8875_REG_VEAW0, (uint8_t)(ye & 0x00FF)); // Vertical End Point of Active Window 0 (VEAW0)
     ra8875_write_cmd(RA8875_REG_VEAW1, (uint8_t)(ye >> 8));    // Vertical End Point of Active Window 1 (VEAW1)
 }
 
@@ -329,15 +380,15 @@ void ra8875_set_memory_write_cursor(unsigned int x, unsigned int y)
 
 void ra8875_send_buffer(uint8_t * data, size_t length, bool signal_flush)
 {
-    ESP_LOGI(TAG, "RA8875 device sending a buffer..");
-    disp_spi_send_flag_t flags = DISP_SPI_SEND_QUEUED | DISP_SPI_ADDRESS_24;
-    if (signal_flush) {
-        flags |= DISP_SPI_SIGNAL_FLUSH;
-    }
-    const uint64_t prefix = (RA8875_MODE_CMD_WRITE << 16)      // Command write mode
-    | (RA8875_REG_MRWC << 8)             // Memory Read/Write Command (MRWC)
-                          | (RA8875_MODE_DATA_WRITE);          // Data write mode
-    disp_spi_transaction(data, length, flags, NULL, prefix, 0); //TODO REVIEW IF I CAN DO IT WITH THE ALINGMENT THAT IS ONLY THE ADDRESS TO SEND THE DATA
+    // ESP_LOGI(TAG, "RA8875 device sending a buffer..");
+    // disp_spi_send_flag_t flags = DISP_SPI_SEND_QUEUED | DISP_SPI_ADDRESS_24;
+    // if (signal_flush) {
+    //     flags |= DISP_SPI_SIGNAL_FLUSH;
+    // }
+    // const uint64_t prefix = (RA8875_MODE_CMD_WRITE << 16)      // Command write mode
+    // | (RA8875_REG_MRWC << 8)             // Memory Read/Write Command (MRWC)
+    //                       | (RA8875_MODE_DATA_WRITE);          // Data write mode
+    // disp_spi_transaction(data, length, flags, NULL, prefix, 0); //TODO REVIEW IF I CAN DO IT WITH THE ALINGMENT THAT IS ONLY THE ADDRESS TO SEND THE DATA
 }
 
 static void configurePWM(uint8_t pwm_pin, bool enable, uint8_t pwm_clock){
@@ -355,5 +406,5 @@ static void PWMout(uint8_t pwm_pin, uint8_t duty_cycle){
     
     uint8_t register_pin = (pwm_pin == PWM_PIN_1) ? RA8875_REG_P1DCR : RA8875_REG_P2DCR;
     
-    ra8875_write_cmd(register_pin, duty_cycle);
+    // ra8875_write_cmd(register_pin, duty_cycle);
 }

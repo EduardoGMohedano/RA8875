@@ -31,13 +31,13 @@ extern "C" {
 #define RA8875_USE_RST      1 //Comment to avoid using reset pin
 
 #ifdef  RA8875_USE_RST
-    #define RA8875_RST      (3) //RESET PIN FOR TFT SCREEN
+    #define RA8875_RST      (5) //RESET PIN FOR TFT SCREEN
 #endif
 
 //Screen tft configurations
 #define CONFIG_LV_DISP_RA8875_PLLDIVM   0 // ranges between 0 - 1
-#define CONFIG_LV_DISP_RA8875_PLLDIVN   7 // ranges between 0 - 31
-#define CONFIG_LV_DISP_RA8875_PLLDIVK   3 
+#define CONFIG_LV_DISP_RA8875_PLLDIVN   11 // ranges between 0 - 31
+#define CONFIG_LV_DISP_RA8875_PLLDIVK   2 
 #define CONFIG_BACKLIGHT_INTERNAL       1
 
 //Internal helper macros
@@ -141,7 +141,7 @@ extern "C" {
 void ra8875_init(void);
 void ra8875_enable_display(bool enable);
 void ra8875_set_rotation(int rotation);
-void ra8875_set_window(unsigned int xs, unsigned int xe, unsigned int ys, unsigned int ye);
+void ra8875_set_window(uint16_t xs, uint16_t xe, uint16_t ys, uint16_t ye);
 void ra8875_set_memory_write_cursor(unsigned int x, unsigned int y);
 void ra8875_send_buffer(uint8_t * data, size_t length, bool signal_flush);
 // void ra8875_flush(lv_disp_drv_t * drv, const lv_area_t * area, lv_color_t * color_map);
@@ -150,6 +150,7 @@ void ra8875_sleep_in(void);
 void ra8875_sleep_out(void);
 
 uint8_t ra8875_read_cmd(uint8_t cmd);
+uint8_t ra8875_read_register(uint8_t reg);
 void ra8875_write_cmd(uint8_t cmd, uint8_t data);
 
 //Static functions

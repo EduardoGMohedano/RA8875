@@ -1,6 +1,7 @@
 #include "freeRTOS/FreeRTOS.h"
 #include <lvgl.h>
-#include "lv_ra8875.h"
+// #include "lv_ra8875.h"
+#include "ra8875.h"
 // LETS ADD HERE THE TOUCHSCREEN DRIVER SUPPORT
 
 /*Set to your screen resolution and rotation*/
@@ -33,16 +34,73 @@ void createScreen1(void){
 
 void app_main() {
 
-    lv_display_t* disp = NULL;
-    disp = lv_ra8875_create(TFT_HOR_RES, TFT_VER_RES, draw_buf, sizeof(draw_buf));
+    // lv_display_t* disp = NULL;
+    // disp = lv_ra8875_create(TFT_HOR_RES, TFT_VER_RES, draw_buf, sizeof(draw_buf));
     //should i set rotation here?
     
-    createScreen1();
-    lv_scr_load(screen1);
-    vTaskDelay( 150 / portTICK_PERIOD_MS);
+    // createScreen1();
+    // lv_scr_load(screen1);
 
-    while(1){
-        lv_timer_handler(); /* let the GUI do its work */
-        vTaskDelay(10 / portTICK_PERIOD_MS); /* let this time pass */
-    }
+    //Code only for SCREEN DEBUGGING
+    ra8875_init();
+    // ra8875_set_rotation(0);
+
+
+    /* Set X */
+    // int x = 0;
+    // ra8875_write_cmd(0x91, x);
+    // ra8875_write_cmd(0x92, x>>8);
+
+    // /* Set Y */
+    // int y = 0;
+    // ra8875_write_cmd(0x93, y);
+    // ra8875_write_cmd(0x94, y>>8);
+
+
+    // /* Set X1 */
+    // int w = 799;
+    // ra8875_write_cmd(0x95, w);
+    // ra8875_write_cmd(0x96, w>>8);
+
+    // /* Set Y1 */
+    // int h = 479;
+    // ra8875_write_cmd(0x97, h);
+    // ra8875_write_cmd(0x98, h>>8);
+
+    // /* Set Color */
+    // int color = 0x0000;
+    // ra8875_write_cmd(0x63, (color & 0xf800) >> 11);
+    // ra8875_write_cmd(0x64, (color & 0x07e0) >> 5);
+    // ra8875_write_cmd(0x65, (color & 0x001f));
+    
+    // /* Draw! */
+    // ra8875_write_cmd(0x90, 0xB0);    
+    // vTaskDelay( 450 / portTICK_PERIOD_MS);
+
+    // /* Set Color */
+    // color = 0x001F;
+    // ra8875_write_cmd(0x63, (color & 0xf800) >> 11);
+    // ra8875_write_cmd(0x64, (color & 0x07e0) >> 5);
+    // ra8875_write_cmd(0x65, (color & 0x001f));
+    
+    // /* Draw! */
+    // ra8875_write_cmd(0x90, 0xB0);    
+    // vTaskDelay( 450 / portTICK_PERIOD_MS);
+
+    
+    // /* Set Color */
+    // color = 0xF800;
+    // ra8875_write_cmd(0x63, (color & 0xf800) >> 11);
+    // ra8875_write_cmd(0x64, (color & 0x07e0) >> 5);
+    // ra8875_write_cmd(0x65, (color & 0x001f));
+    
+    // /* Draw! */
+    // ra8875_write_cmd(0x90, 0xB0);    
+    // vTaskDelay( 450 / portTICK_PERIOD_MS);
+
+
+    // while(1){
+    //     // lv_timer_handler(); /* let the GUI do its work */
+    //     vTaskDelay(10 / portTICK_PERIOD_MS); /* let this time pass */
+    // }
 }

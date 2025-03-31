@@ -9,10 +9,6 @@ static void flush_cb(lv_display_t * disp, const lv_area_t * area, uint8_t * px_m
 static void resolution_changed_event_cb(lv_event_t* e);
 
 lv_display_t * lv_ra8875_create(uint32_t hor_res, uint32_t ver_res, void* buf, uint32_t buf_size_bytes){
-    // lv_tft_espi_t * dsc = (lv_tft_espi_t *)lv_malloc_zeroed(sizeof(lv_tft_espi_t));
-    // LV_ASSERT_MALLOC(dsc);
-    // if(dsc == NULL) return NULL;
-
     lv_display_t * disp = lv_display_create(hor_res, ver_res);
     if(disp == NULL) {
         return NULL;
