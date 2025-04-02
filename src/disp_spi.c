@@ -38,13 +38,9 @@ static const char* TAG = "disp_spi";
 /**********************
  *  STATIC VARIABLES
  **********************/
-static spi_host_device_t spi_host = SPI2_HOST;
+static spi_host_device_t spi_host = SPI3_HOST;
 static spi_device_handle_t spi;
 
-
-/**********************
- *      MACROS
- **********************/
 
 /**********************
  *   GLOBAL FUNCTIONS
@@ -61,15 +57,15 @@ void disp_spi_init(int clock_speed_hz)
         .sclk_io_num = TFT_PIN_CLK,
         .quadwp_io_num = -1,
         .quadhd_io_num = -1,
-        .max_transfer_sz = 10,
+        .max_transfer_sz = 4092,
     };
 
     spi_device_interface_config_t devcfg={
         .clock_speed_hz = clock_speed_hz,
         .mode = 0,
-        .spics_io_num= TFT_PIN_CS,              // CS pin
+        .spics_io_num= -1,              // CS pin
         .input_delay_ns= 0 ,
-        .queue_size=25,
+        .queue_size=SPI_TRANSACTION_POOL_SIZE,
         .cs_ena_pretrans = 0,
         .cs_ena_posttrans = 0,
         .address_bits = 0,
@@ -92,24 +88,26 @@ void disp_spi_init(int clock_speed_hz)
         ESP_LOGI(TAG, "SPI bus after adding a new device %d", bus_ret);
     #endif
 
+    gpio_set_direction(TFT_PIN_CS, GPIO_MODE_OUTPUT);
+    gpio_pulldown_dis(TFT_PIN_CS);
+    gpio_pullup_dis(TFT_PIN_CS);
 }
 
-void disp_spi_send_t(uint8_t data, uint8_t data2, bool read, uint8_t* res){
+uint8_t disp_spi_send_t(uint8_t data, uint8_t data2){
     spi_transaction_t t;
     memset(&t, 0, sizeof(t));       //Zero out the transaction
-    t.length = 2*8; //in bytes
-    t.flags = SPI_TRANS_USE_TXDATA;
-    if(read){
-        t.flags |= SPI_TRANS_USE_RXDATA;
-        t.rxlength = 1*8;
-    }
+    t.length = 16; //in bytes
+    t.flags = SPI_TRANS_USE_TXDATA | SPI_TRANS_USE_RXDATA;
+    t.rxlength = 8;
+    
     t.tx_data[0] = data;
     t.tx_data[1] = data2;
 
+    gpio_set_level(TFT_PIN_CS, 0);
     spi_device_polling_transmit(spi, &t);
+    gpio_set_level(TFT_PIN_CS, 1);
 
-    if(res)
-        *res = t.rx_data[1];
+    return t.rx_data[1];
 }
 
 

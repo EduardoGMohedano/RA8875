@@ -57,11 +57,11 @@ void app_main() {
     while(1){
       // lv_timer_handler(); /* let the GUI do its work */
         fillScreen(0x0000);
-        setCursor(pos*5,pos*5);
+        setCursor(pos*15,pos*15);
         textEnlarge(1);
         textTransparent(0xFFFF - pos*1000);
         textWrite(text, sizeof(text));
-        vTaskDelay(150 / portTICK_PERIOD_MS); /* let this time pass */
+        vTaskDelay(100 / portTICK_PERIOD_MS); /* let this time pass */
         pos++;
     }
 }

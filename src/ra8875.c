@@ -113,12 +113,10 @@
  *      TYPEDEFS
  **********************/
 
-/**********************
- *  STATIC PROTOTYPES
- **********************/
-static void ra8875_configure_clocks(bool high_speed);
+/**********************/
 
-/**********************
+static void ra8875_configure_clocks(bool high_speed);
+ /**********************
  *  STATIC VARIABLES
  **********************/
 
@@ -280,8 +278,7 @@ void ra8875_sleep_out(void)
 }
 
 uint8_t ra8875_read_register(uint8_t reg){
-
-    ESP_LOGI(TAG, "Device read register %02X triggered...", reg);
+    // ESP_LOGI(TAG, "Device read register %02X triggered...", reg);
 
     writeCommand(reg);
     uint8_t rcv_buf = readData();
@@ -295,7 +292,7 @@ void ra8875_write_register(uint8_t reg, uint8_t value){
 
 void ra8875_configure_clocks(bool high_speed)
 {
-    ESP_LOGI(TAG, "RA8875 device configuring clocks...");
+    // ESP_LOGI(TAG, "RA8875 device configuring clocks...");
     uint8_t val;
     
     val = high_speed ? ((CONFIG_LV_DISP_RA8875_PLLDIVM << 7) | CONFIG_LV_DISP_RA8875_PLLDIVN) : 0x07;
@@ -308,7 +305,7 @@ void ra8875_configure_clocks(bool high_speed)
 }
 
 void ra8875_set_window(uint16_t xs, uint16_t xe, uint16_t ys, uint16_t ye){
-    ESP_LOGI(TAG, "RA8875 device setting a window..");
+    // ESP_LOGI(TAG, "RA8875 device setting a window..");
     ra8875_write_register(RA8875_REG_HSAW0, (uint8_t)(xs & 0x00FF)); // Horizontal Start Point 0 of Active Window (HSAW0)
     ra8875_write_register(RA8875_REG_HSAW1, (uint8_t)(xs >> 8));    // Horizontal Start Point 1 of Active Window (HSAW1)
     ra8875_write_register(RA8875_REG_VSAW0, (uint8_t)(ys & 0x00FF)); // Vertical Start Point 0 of Active Window (VSAW0)
@@ -319,12 +316,11 @@ void ra8875_set_window(uint16_t xs, uint16_t xe, uint16_t ys, uint16_t ye){
     ra8875_write_register(RA8875_REG_VEAW1, (uint8_t)(ye >> 8));    // Vertical End Point of Active Window 1 (VEAW1)
 }
 
-
 // Used to set the cursor at certain position 
 void ra8875_set_memory_write_cursor(uint16_t x, uint16_t y)
 {
-    ESP_LOGI(TAG, "RA8875 device setting a write cursor..");
-    ra8875_write_register(RA8875_REG_CURH0, (uint8_t)(x & 0x0FF));  // Memory Write Cursor Horizontal Position Register 0 (CURH0)
+    // ESP_LOGI(TAG, "RA8875 device setting a write cursor..");
+    ra8875_write_register(RA8875_REG_CURH0, (uint8_t)(x & 0x00FF));  // Memory Write Cursor Horizontal Position Register 0 (CURH0)
     ra8875_write_register(RA8875_REG_CURH1, (uint8_t)(x >> 8));     // Memory Write Cursor Horizontal Position Register 1 (CURH1)
     ra8875_write_register(RA8875_REG_CURV0, (uint8_t)(y & 0x0FF));  // Memory Write Cursor Vertical Position Register 0 (CURV0)
     ra8875_write_register(RA8875_REG_CURV1, (uint8_t)(y >> 8));     // Memory Write Cursor Vertical Position Register 1 (CURV1)
@@ -352,7 +348,6 @@ static void configurePWM(uint8_t pwm_pin, bool enable, uint8_t pwm_clock){
     }
 }
 
-
 static void PWMout(uint8_t pwm_pin, uint8_t duty_cycle){
     uint8_t register_pin = (pwm_pin == PWM_PIN_1) ? RA8875_REG_P1DCR : RA8875_REG_P2DCR;
     
@@ -360,21 +355,20 @@ static void PWMout(uint8_t pwm_pin, uint8_t duty_cycle){
 }
 
 void writeCommand(uint8_t d){
-    disp_spi_send_t((uint8_t)RA8875_MODE_CMD_WRITE, d, false, NULL);
+    disp_spi_send_t((uint8_t)RA8875_MODE_CMD_WRITE, d);
 }
 
 uint8_t readData(){
     uint8_t val = 0;
-    disp_spi_send_t((uint8_t)RA8875_MODE_DATA_READ, 0, true, &val);
+    val = disp_spi_send_t((uint8_t)RA8875_MODE_DATA_READ, 0);
     return val;
 }
 
 void writeData(uint8_t d){
-    disp_spi_send_t(RA8875_MODE_DATA_WRITE, d, false, NULL);
+    disp_spi_send_t(RA8875_MODE_DATA_WRITE, d);
 }
 
 
-//functions used to perform demo only
 void fillScreen(uint16_t color) {
     // rectHelper(0, 0, _width - 1, _height - 1, color, true);
 
