@@ -16,14 +16,26 @@ extern "C" {
 #include <stdbool.h>
 #include <stdint.h>
 #include <stddef.h>
+#include "driver/spi_master.h"
+
+/*********************
+ *      SPI DEFINES
+ *********************/
+#define         SPI_TFT_CLOCK_SPEED_HZ  (1*1000*1000)
+#define         TFT_PIN_MISO            (19)
+#define         TFT_PIN_MOSI            (23)
+#define         TFT_PIN_CLK             (18)
+#define         TFT_PIN_CS              (2)
+
 
 /*********************
  *      DEFINES
  *********************/
+
 #ifdef  USE_LGVL_LIBRARY
     #include "lgvl.h"
 #else
-    #define LV_COLOR_DEPTH  16
+    #define LV_COLOR_DEPTH  8
     #define LV_HOR_RES_MAX  800
     #define LV_VER_RES_MAX  480
 #endif
@@ -35,9 +47,9 @@ extern "C" {
 #endif
 
 //Screen tft configurations
-#define CONFIG_LV_DISP_RA8875_PLLDIVM   0 // ranges between 0 - 1
-#define CONFIG_LV_DISP_RA8875_PLLDIVN   11 // ranges between 0 - 31
-#define CONFIG_LV_DISP_RA8875_PLLDIVK   2 
+#define CONFIG_LV_DISP_RA8875_PLLDIVM   0 // ranges between 0 - 1 quickest 0
+#define CONFIG_LV_DISP_RA8875_PLLDIVN   11 // ranges between 0 - 31 quickest 31
+#define CONFIG_LV_DISP_RA8875_PLLDIVK   1 // quickest = 0
 #define CONFIG_BACKLIGHT_INTERNAL       1
 
 //Internal helper macros
@@ -61,7 +73,8 @@ extern "C" {
 #define RA8875_PWM_CLK_DIV16384 0x0E    ///< See datasheet
 #define RA8875_PWM_CLK_DIV32768 0x0F    ///< See datasheet
 
-#define RA8875_REG_MWCR0_DIRMASK    0x0C
+#define RA8875_REG_MWCR0_DIRMASK              0x0C
+#define RA8875_REG_MWCR0_GRAPHIC_MODE_BIT    0x80
 
 // System & Configuration Registers
 #define RA8875_REG_PWRR   (0x01)     // Power and Display Control Register (PWRR)
@@ -145,8 +158,7 @@ void ra8875_enable_display(bool enable);
 void ra8875_set_rotation(int rotation);
 void ra8875_set_window(uint16_t xs, uint16_t xe, uint16_t ys, uint16_t ye);
 void ra8875_set_memory_write_cursor(uint16_t x, uint16_t y);
-void ra8875_send_buffer(uint8_t * data, size_t length);
-// void ra8875_flush(lv_disp_drv_t * drv, const lv_area_t * area, lv_color_t * color_map);
+void ra8875_send_buffer(uint16_t * data, size_t length);
 
 void ra8875_sleep_in(void);
 void ra8875_sleep_out(void);
@@ -161,6 +173,16 @@ uint8_t readData();
 //Static functions
 static void configurePWM(uint8_t pwm_pin, bool enable, uint8_t pwm_clock);
 static void PWMout(uint8_t pwm_pin, uint8_t duty_cycle);
+
+/**********************
+ *      SPI BUS APIS
+ **********************/
+void disp_spi_init(int clock_speed_hz);
+void disp_spi_send_buffer(uint16_t* data, size_t length);
+void disp_acquire_bus();
+void disp_release_bus();
+void disp_bus_accelerate();
+void disp_bus_deaccelerate();
 
 /**********************
  *      MACROS

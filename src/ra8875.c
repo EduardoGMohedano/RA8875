@@ -7,11 +7,11 @@
  *      INCLUDES
  *********************/
 #include "ra8875.h"
-#include "disp_spi.h"
 #include "driver/gpio.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include <string.h>
 
 /*********************
  *      DEFINES
@@ -40,6 +40,7 @@
 
 #define VDIR_MASK (1 << 2)
 #define HDIR_MASK (1 << 3)
+#define PCLK_SYSCLK_VAL  0x00
 
 // #if ( CONFIG_LV_DISPLAY_ORIENTATION_PORTRAIT_INVERTED || CONFIG_LV_DISPLAY_ORIENTATION_LANDSCAPE_INVERTED )
 //     #if CONFIG_LV_INVERT_DISPLAY
@@ -109,22 +110,37 @@
     #define BACKLIGHT_EXTERNAL  1
 #endif
 
-/**********************
- *      TYPEDEFS
- **********************/
+#define SPI_MODE_MASTER             3
+#define SPI_TRANSACTION_POOL_SIZE   100	/* maximum number of DMA transactions simultaneously in-flight */
+#define MAX_QUEUE_SIZE              84
+
+spi_host_device_t spi_host = SPI3_HOST;
+spi_device_handle_t spi;
+spi_device_interface_config_t fastdevcfg;
+spi_device_handle_t handle_fast;
+
+inline uint8_t disp_spi_send_t(uint8_t data, uint8_t data2) __attribute__((always_inline));
+inline uint8_t disp_spi_send_t(uint8_t data, uint8_t data2){
+    spi_transaction_t t;
+    memset(&t, 0, sizeof(t));       //Zero out the transaction
+    t.length = 16; //in bytes
+    t.flags = SPI_TRANS_USE_TXDATA | SPI_TRANS_USE_RXDATA;
+    t.rxlength = 8;
+    
+    t.tx_data[0] = data;
+    t.tx_data[1] = data2;
+
+    gpio_set_level(TFT_PIN_CS, 0);
+    spi_device_polling_transmit(spi, &t);
+    gpio_set_level(TFT_PIN_CS, 1);
+
+    return t.rx_data[1];
+}
 
 /**********************
  *  STATIC PROTOTYPES
  **********************/
 static void ra8875_configure_clocks(bool high_speed);
-
-/**********************
- *  STATIC VARIABLES
- **********************/
-
-/**********************
- *      MACROS
- **********************/
 
 /**********************
  *   GLOBAL FUNCTIONS
@@ -136,8 +152,8 @@ uint8_t ra8875_init(void)
         uint8_t cmd;                                   // Register address of command
         uint8_t data;                                  // Value to write to register
     } init_cmds[] = {
-        {RA8875_REG_SYSR,   SYSR_VAL},                 // System Configuration Register (SYSR)
-        {RA8875_REG_PCSR,   0x81},
+        {RA8875_REG_SYSR,   SYSR_VAL},                 // System Configuration Register (SYSR) TODO CHECK FOR 16 BIT COLORS CORRECT VAL
+        {RA8875_REG_PCSR,   0x00 | PCLK_SYSCLK_VAL},
         {RA8875_REG_HDWR,   HDWR_VAL},                 // LCD Horizontal Display Width Register (HDWR)
         {RA8875_REG_HNDFTR, HNDFTR_VAL},               // Horizontal Non-Display Period Fine Tuning Option Register (HNDFTR)
         {RA8875_REG_HNDR,   HNDR_VAL},                 // Horizontal Non-Display Period Register (HNDR) TODO CORRECT FORMULA COULD BE 3 BY DEFA
@@ -201,7 +217,6 @@ uint8_t ra8875_init(void)
     for(uint8_t i = 100; i != 0; i--) {
         if ((ra8875_read_register(RA8875_REG_MCLR) & 0x80) == 0x00) {
             ESP_LOGI(TAG, "WAITING for Memory clear to be finished...");
-            break;
         }
         vTaskDelay(10);
     }
@@ -222,7 +237,7 @@ uint8_t ra8875_init(void)
 
 void ra8875_enable_display(bool enable)
 {
-    ESP_LOGI(TAG, "%s display.", enable ? "Enabling" : "Disabling");
+    // ESP_LOGI(TAG, "%s display.", enable ? "Enabling" : "Disabling");
     uint8_t val = enable ? 0x80 : 0x00;
     ra8875_write_register(RA8875_REG_PWRR, val);            // Power and Display Control Register (PWRR)
 }
@@ -259,29 +274,22 @@ void ra8875_set_rotation(int rotation){
 
 void ra8875_sleep_in(void)
 {
-    ESP_LOGI(TAG, "Device about to be sent to sleep...");
-    ra8875_configure_clocks(false);
-
-    ra8875_write_register(RA8875_REG_PWRR, 0x00);           // Power and Display Control Register (PWRR)
-    vTaskDelay( 20 / portTICK_PERIOD_MS);
-    ra8875_write_register(RA8875_REG_PWRR, 0x02);           // Power and Display Control Register (PWRR)
+    uint8_t curr_val = ra8875_read_register(RA8875_REG_PWRR);
+    ESP_LOGI(TAG, "Device about to be sent to sleep curr val:%d and new val%d", curr_val, curr_val | 0x02);
+    ra8875_write_register(RA8875_REG_PWRR, curr_val | 0x02);           // Power and Display Control Register (PWRR)
+    // vTaskDelay( 5 / portTICK_PERIOD_MS);
 }
 
 void ra8875_sleep_out(void)
 {
-    ESP_LOGI(TAG, "Device about to recover from sleep...");
-    ra8875_write_register(RA8875_REG_PWRR, 0x00);           // Power and Display Control Register (PWRR)
-    vTaskDelay( 20 / portTICK_PERIOD_MS);
-
-    ra8875_configure_clocks(true);
-
-    ra8875_write_register(RA8875_REG_PWRR, 0x80);           // Power and Display Control Register (PWRR)
-    vTaskDelay( 20 / portTICK_PERIOD_MS);
+   ra8875_write_register(RA8875_REG_PWRR, 0x80);           // Power and Display Control Register (PWRR)
+    uint8_t curr_val = ra8875_read_register(RA8875_REG_PWRR);
+    ESP_LOGI(TAG, "Device about to recover from sleep READ%d", curr_val);
+    // vTaskDelay( 5 / portTICK_PERIOD_MS);
 }
 
 uint8_t ra8875_read_register(uint8_t reg){
-
-    ESP_LOGI(TAG, "Device read register %02X triggered...", reg);
+    // ESP_LOGI(TAG, "Device read register %02X triggered...", reg);
 
     writeCommand(reg);
     uint8_t rcv_buf = readData();
@@ -295,7 +303,7 @@ void ra8875_write_register(uint8_t reg, uint8_t value){
 
 void ra8875_configure_clocks(bool high_speed)
 {
-    ESP_LOGI(TAG, "RA8875 device configuring clocks...");
+    // ESP_LOGI(TAG, "RA8875 device configuring clocks...");
     uint8_t val;
     
     val = high_speed ? ((CONFIG_LV_DISP_RA8875_PLLDIVM << 7) | CONFIG_LV_DISP_RA8875_PLLDIVN) : 0x07;
@@ -308,7 +316,7 @@ void ra8875_configure_clocks(bool high_speed)
 }
 
 void ra8875_set_window(uint16_t xs, uint16_t xe, uint16_t ys, uint16_t ye){
-    ESP_LOGI(TAG, "RA8875 device setting a window..");
+    // ESP_LOGI(TAG, "RA8875 device setting a window..");
     ra8875_write_register(RA8875_REG_HSAW0, (uint8_t)(xs & 0x00FF)); // Horizontal Start Point 0 of Active Window (HSAW0)
     ra8875_write_register(RA8875_REG_HSAW1, (uint8_t)(xs >> 8));    // Horizontal Start Point 1 of Active Window (HSAW1)
     ra8875_write_register(RA8875_REG_VSAW0, (uint8_t)(ys & 0x00FF)); // Vertical Start Point 0 of Active Window (VSAW0)
@@ -319,27 +327,38 @@ void ra8875_set_window(uint16_t xs, uint16_t xe, uint16_t ys, uint16_t ye){
     ra8875_write_register(RA8875_REG_VEAW1, (uint8_t)(ye >> 8));    // Vertical End Point of Active Window 1 (VEAW1)
 }
 
-
 // Used to set the cursor at certain position 
 void ra8875_set_memory_write_cursor(uint16_t x, uint16_t y)
 {
-    ESP_LOGI(TAG, "RA8875 device setting a write cursor..");
-    ra8875_write_register(RA8875_REG_CURH0, (uint8_t)(x & 0x0FF));  // Memory Write Cursor Horizontal Position Register 0 (CURH0)
+    // ESP_LOGI(TAG, "RA8875 device setting a write cursor..");
+    ra8875_write_register(RA8875_REG_CURH0, (uint8_t)(x & 0x00FF));  // Memory Write Cursor Horizontal Position Register 0 (CURH0)
     ra8875_write_register(RA8875_REG_CURH1, (uint8_t)(x >> 8));     // Memory Write Cursor Horizontal Position Register 1 (CURH1)
-    ra8875_write_register(RA8875_REG_CURV0, (uint8_t)(y & 0x0FF));  // Memory Write Cursor Vertical Position Register 0 (CURV0)
+    ra8875_write_register(RA8875_REG_CURV0, (uint8_t)(y & 0x00FF));  // Memory Write Cursor Vertical Position Register 0 (CURV0)
     ra8875_write_register(RA8875_REG_CURV1, (uint8_t)(y >> 8));     // Memory Write Cursor Vertical Position Register 1 (CURV1)
 }
 
-void ra8875_send_buffer(uint8_t * data, size_t length)
+void ra8875_send_buffer(uint16_t * data, size_t length)
 {
-    ESP_LOGI(TAG, "RA8875 device sending a buffer of transactions");
+    // ESP_LOGI(TAG, "RA8875 device sending a %d buffer of transactions", length);
 
     uint8_t dir = 0; //fix it to contain rotation value
     uint8_t curr_val = ra8875_read_register(RA8875_REG_MWCR0); 
-    ra8875_write_register(RA8875_REG_MWCR0, (curr_val & ~RA8875_REG_MWCR0_DIRMASK) | dir);
+    uint8_t new_val = ((curr_val & (uint8_t)(~RA8875_REG_MWCR0_DIRMASK)) | dir) & (uint8_t)(~RA8875_REG_MWCR0_GRAPHIC_MODE_BIT);
+    // ESP_LOGI(TAG, "Current value of MWCR0 regsiter is %02X", curr_val);
+    // ESP_LOGI(TAG, "Targeted value of MWCR0 regsiter is %02X", new_val );
+    ra8875_write_register(RA8875_REG_MWCR0, new_val);
     writeCommand(RA8875_REG_MRWC);
 
+    //may need to turn off screen and enable it again
+    // ra8875_enable_display(false);
+    // disp_bus_accelerate();
+    // ra8875_enable_display(true);
+    
     disp_spi_send_buffer(data, length); //TODO REVIEW IF I CAN DO IT WITH THE ALINGMENT THAT IS ONLY THE ADDRESS TO SEND THE DATA
+    
+    // ra8875_enable_display(false);
+    // disp_bus_deaccelerate();
+    // ra8875_enable_display(true);
 }
 
 static void configurePWM(uint8_t pwm_pin, bool enable, uint8_t pwm_clock){
@@ -352,7 +371,6 @@ static void configurePWM(uint8_t pwm_pin, bool enable, uint8_t pwm_clock){
     }
 }
 
-
 static void PWMout(uint8_t pwm_pin, uint8_t duty_cycle){
     uint8_t register_pin = (pwm_pin == PWM_PIN_1) ? RA8875_REG_P1DCR : RA8875_REG_P2DCR;
     
@@ -360,21 +378,189 @@ static void PWMout(uint8_t pwm_pin, uint8_t duty_cycle){
 }
 
 void writeCommand(uint8_t d){
-    disp_spi_send_t((uint8_t)RA8875_MODE_CMD_WRITE, d, false, NULL);
+    disp_spi_send_t((uint8_t)RA8875_MODE_CMD_WRITE, d);
 }
 
 uint8_t readData(){
     uint8_t val = 0;
-    disp_spi_send_t((uint8_t)RA8875_MODE_DATA_READ, 0, true, &val);
+    val = disp_spi_send_t((uint8_t)RA8875_MODE_DATA_READ, 0);
     return val;
 }
 
 void writeData(uint8_t d){
-    disp_spi_send_t(RA8875_MODE_DATA_WRITE, d, false, NULL);
+    disp_spi_send_t(RA8875_MODE_DATA_WRITE, d);
+}
+
+/**************************
+ ****** SPI BUS APIS *******
+ ***************************/
+
+void disp_spi_init(int clock_speed_hz)
+{
+    ESP_LOGI(TAG, "Adding SPI device with speed %d", clock_speed_hz);
+    esp_log_level_set("gpio", ESP_LOG_WARN);  // Only show warnings and errors for GPIO
+
+    spi_bus_config_t buscfg = {
+        .miso_io_num = TFT_PIN_MISO,
+        .mosi_io_num = TFT_PIN_MOSI,
+        .sclk_io_num = TFT_PIN_CLK,
+        .quadwp_io_num = -1,
+        .quadhd_io_num = -1,
+        .max_transfer_sz = 4092,
+    };
+
+    spi_device_interface_config_t devcfg={
+        .clock_speed_hz = clock_speed_hz,
+        .mode = SPI_MODE_MASTER,
+        .spics_io_num= -1,              // CS pin
+        .input_delay_ns= 0 ,
+        .queue_size=SPI_TRANSACTION_POOL_SIZE,
+        .cs_ena_posttrans = 0, 
+        .address_bits = 0,
+        .command_bits = 0,
+        .dummy_bits = 0,
+        .flags = SPI_DEVICE_NO_DUMMY
+    };
+ 
+    //Initialize the SPI bus
+    esp_err_t bus_ret = spi_bus_initialize(spi_host, &buscfg, SPI_DMA_CH_AUTO);
+    #ifdef DEBUG
+        ESP_LOGI(TAG, "SPI bus init has returned val%d", bus_ret);
+        ESP_ERROR_CHECK(bus_ret);
+    #endif
+        
+    bus_ret = spi_bus_add_device(spi_host, &devcfg, &spi);
+    ESP_ERROR_CHECK(bus_ret);
+        
+    // #ifdef DEBUG
+        ESP_LOGI(TAG, "SPI bus after adding a new device %d", bus_ret);
+    // #endif
+        
+    fastdevcfg = devcfg;
+    fastdevcfg.clock_speed_hz = 3*1000*1000;
+    bus_ret = spi_bus_add_device(spi_host, &fastdevcfg, &handle_fast);
+    ESP_ERROR_CHECK(bus_ret);
+
+    ESP_LOGI(TAG, "SPI bus after adding FAST device %d", bus_ret);
+ 
+    gpio_set_direction(TFT_PIN_CS, GPIO_MODE_OUTPUT);
+    gpio_pullup_dis(TFT_PIN_CS);
+    gpio_pulldown_dis(TFT_PIN_CS);
+}
+
+ void disp_spi_send_buffer(uint16_t* data, size_t length){
+    // spi_transaction_t t;
+    // memset(&t, 0, sizeof(t));       //Zero out the transaction
+    // t.length = length*8;            //length in bytes
+    // t.tx_buffer = data;
+    // spi_device_polling_transmit(spi, &t);
+    
+    uint8_t mock_data = 0x00;
+    spi_transaction_t t;
+    memset(&t, 0, sizeof(t));
+    t.length = 8;
+    t.tx_buffer = &mock_data;
+    spi_device_acquire_bus(handle_fast, portMAX_DELAY);
+
+    
+    // spi_transaction_t trans[MAX_QUEUE_SIZE];
+    // int queued = 1;
+    int processed = 0;
+    t.length = 8;
+    t.flags = SPI_TRANS_USE_TXDATA;
+
+    gpio_set_level(TFT_PIN_CS, 0);
+    spi_device_polling_transmit(handle_fast, &t);
+    while( processed < length ){
+        // // Queue up to MAX_QUEUE_SIZE transactions
+        // while (queued - processed < MAX_QUEUE_SIZE && queued < length) {
+        //     memset(&trans[queued % MAX_QUEUE_SIZE], 0, sizeof(spi_transaction_t));
+        //     trans[queued % MAX_QUEUE_SIZE].length = 16;
+        //     trans[queued % MAX_QUEUE_SIZE].tx_buffer = &data[queued];
+        //     spi_device_queue_trans(spi, &trans[queued % MAX_QUEUE_SIZE], portMAX_DELAY);
+        //     queued++;
+        // }
+       
+        t.tx_buffer = &(data[processed]);
+
+        // t.tx_data[1] = data[processed] >> 8;
+        // t.tx_data[0] = data[processed] & 0x00FF;
+        
+        // Wait for one transaction to finish to keep the queue flowing
+        spi_device_polling_transmit(handle_fast, &t);
+        processed++;
+    }
+
+    gpio_set_level(TFT_PIN_CS, 1);
+    spi_device_release_bus(handle_fast);
+}
+
+void disp_acquire_bus(){
+    spi_device_acquire_bus(spi, portMAX_DELAY);
+}
+
+void disp_release_bus(){
+    spi_device_release_bus(spi);
+}
+
+void disp_bus_accelerate(){
+    esp_err_t ret = spi_bus_remove_device(spi);
+    // ESP_LOGI(TAG, "After removing the device %d", ret);
+
+    spi_device_interface_config_t devcfg={
+        .clock_speed_hz = 15*1000*1000 ,
+        .mode = SPI_MODE_MASTER,
+        .spics_io_num= -1,              // CS pin
+        .input_delay_ns= 0 ,
+        .queue_size=SPI_TRANSACTION_POOL_SIZE,
+        .address_bits = 0,
+        .command_bits = 0,
+        .dummy_bits = 0,
+        .flags = 0
+    };
+
+    ret = spi_bus_add_device(spi_host, &devcfg, &spi);
+
+    //Set the CS pin again to manage it manually?
+    // gpio_set_direction(TFT_PIN_CS, GPIO_MODE_OUTPUT);
+    // gpio_pullup_dis(TFT_PIN_CS);
+    // gpio_pulldown_dis(TFT_PIN_CS);
+
+    // ESP_LOGI(TAG, "After adding the device with 10MHz %d", ret);
+}
+
+void disp_bus_deaccelerate(){
+    esp_err_t ret = spi_bus_remove_device(spi);
+    // ESP_LOGI(TAG, "After removing the quick device %d", ret);
+
+    spi_device_interface_config_t devcfg={
+        .clock_speed_hz = 1*1000*1000,
+        .mode = SPI_MODE_MASTER,
+        .spics_io_num= -1,              // CS pin
+        .input_delay_ns= 0 ,
+        .queue_size=SPI_TRANSACTION_POOL_SIZE,
+        .cs_ena_posttrans = 0,
+        .address_bits = 0,
+        .command_bits = 0,
+        .dummy_bits = 0,
+        .flags = 0
+    };
+
+    ret = spi_bus_add_device(spi_host, &devcfg, &spi);
+    //Set the CS pin again to manage it manually?
+    // gpio_set_direction(TFT_PIN_CS, GPIO_MODE_OUTPUT);
+    // gpio_pullup_dis(TFT_PIN_CS);
+    // gpio_pulldown_dis(TFT_PIN_CS);
+
+    // ESP_LOGI(TAG, "After adding the device with 1MHz NORMAL SPEED %d", ret);
 }
 
 
-//functions used to perform demo only
+
+/********************************
+ ******** TFT SCREEN APIS *******
+ ********************************/
+
 void fillScreen(uint16_t color) {
     // rectHelper(0, 0, _width - 1, _height - 1, color, true);
 
