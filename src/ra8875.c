@@ -61,7 +61,14 @@
 // #else
 //     #define PCSR_VAL (CONFIG_LV_DISP_RA8875_PCLK_MULTIPLIER)
 // #endif
-#define PCSR_VAL (0) //BETWEEN 0 -3 VALUES INCREASING 
+#define CONFIG_PCLK_RISING_EDGE     (0x00)
+#define CONFIG_PCLK_FALLING_EDGE    (0x80)
+#define CONFIG_PCLK_SYS_1           (0x00)
+#define CONFIG_PCLK_SYS_2           (0x01)
+#define CONFIG_PCLK_SYS_4           (0x02)
+#define CONFIG_PCLK_SYS_8           (0x03)
+
+#define PCSR_VAL (CONFIG_PCLK_FALLING_EDGE | CONFIG_PCLK_SYS_2) //BETWEEN 0 -3 VALUES INCREASING 
 
 // Calculate horizontal display parameters
 #define CONFIG_LV_DISP_RA8875_HORI_NON_DISP_PERIOD 12  //default value for non display period RANGE 12- 274
@@ -135,7 +142,7 @@ uint8_t ra8875_init(void)
         uint8_t data;                                  // Value to write to register
     } init_cmds[] = {
         {RA8875_REG_SYSR,   SYSR_VAL},                 // System Configuration Register (SYSR)
-        {RA8875_REG_PCSR,   0x81},
+        {RA8875_REG_PCSR,   PCSR_VAL},
         {RA8875_REG_HDWR,   HDWR_VAL},                 // LCD Horizontal Display Width Register (HDWR)
         {RA8875_REG_HNDFTR, HNDFTR_VAL},               // Horizontal Non-Display Period Fine Tuning Option Register (HNDFTR)
         {RA8875_REG_HNDR,   HNDR_VAL},                 // Horizontal Non-Display Period Register (HNDR) TODO CORRECT FORMULA COULD BE 3 BY DEFA
