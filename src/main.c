@@ -49,7 +49,7 @@ void app_main() {
 
     
     
-    char text[] = "HELLO WORLD!";
+    char text[] = "hello again to all my friends!";
     textMode();
     vTaskDelay(10 / portTICK_PERIOD_MS); /* let this time pass */
     
@@ -57,11 +57,11 @@ void app_main() {
     while(1){
       // lv_timer_handler(); /* let the GUI do its work */
         fillScreen(0x0000);
-        setCursor(pos*15,pos*15);
+        setCursor(pos*25,pos*25);
         textEnlarge(1);
         textTransparent(0xFFFF - pos*1000);
         textWrite(text, sizeof(text));
-        vTaskDelay(100 / portTICK_PERIOD_MS); /* let this time pass */
+        vTaskDelay(250 / portTICK_PERIOD_MS); /* let this time pass */
         pos++;
     }
 }

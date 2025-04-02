@@ -23,12 +23,20 @@ extern "C" {
 #ifdef  USE_LGVL_LIBRARY
     #include "lgvl.h"
 #else
-    #define LV_COLOR_DEPTH  16
+    #define LV_COLOR_DEPTH  8
     #define LV_HOR_RES_MAX  800
     #define LV_VER_RES_MAX  480
 #endif
 
-#define RA8875_USE_RST      1 //Comment to avoid using reset pin
+/*********************
+ *      PINOUT DEFINES
+ *********************/
+#define SPI_TFT_CLOCK_SPEED_HZ  (150*1000)
+#define TFT_PIN_MISO            (19)
+#define TFT_PIN_MOSI            (23)
+#define TFT_PIN_CLK             (18)
+#define TFT_PIN_CS              (2)
+#define RA8875_USE_RST           1 //Comment to avoid using reset pin
 
 #ifdef  RA8875_USE_RST
     #define RA8875_RST      (5) //RESET PIN FOR TFT SCREEN
@@ -37,7 +45,7 @@ extern "C" {
 //Screen tft configurations
 #define CONFIG_LV_DISP_RA8875_PLLDIVM   0 // ranges between 0 - 1
 #define CONFIG_LV_DISP_RA8875_PLLDIVN   11 // ranges between 0 - 31
-#define CONFIG_LV_DISP_RA8875_PLLDIVK   2 
+#define CONFIG_LV_DISP_RA8875_PLLDIVK   2
 #define CONFIG_BACKLIGHT_INTERNAL       1
 
 //Internal helper macros
@@ -162,10 +170,14 @@ uint8_t readData();
 static void configurePWM(uint8_t pwm_pin, bool enable, uint8_t pwm_clock);
 static void PWMout(uint8_t pwm_pin, uint8_t duty_cycle);
 
-/**********************
- *      MACROS
- **********************/
 
+ /**********************
+ *** SPI BUS PROTOTYPES
+ **********************/
+void disp_spi_init(int clock_speed_hz);
+void disp_spi_send_buffer(uint8_t* data, size_t length);
+void disp_acquire_bus();
+void disp_release_bus();
 
 void fillScreen(uint16_t color);
 void setCursor(uint16_t x, uint16_t y);

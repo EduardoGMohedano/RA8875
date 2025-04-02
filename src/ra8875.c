@@ -7,19 +7,18 @@
  *      INCLUDES
  *********************/
 #include "ra8875.h"
-#include "disp_spi.h"
 #include "driver/gpio.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "driver/spi_master.h"
+#include <string.h>
 
 /*********************
  *      DEFINES
  *********************/
 
 #define TAG "RA8875"
-
-#define SPI_CLOCK_SPEED_SLOW_HZ 1000000
 
 #define RA8875_MODE_DATA_WRITE  (0x00)
 #define RA8875_MODE_DATA_READ   (0x40)
@@ -68,7 +67,7 @@
 #define CONFIG_PCLK_SYS_4           (0x02)
 #define CONFIG_PCLK_SYS_8           (0x03)
 
-#define PCSR_VAL (CONFIG_PCLK_FALLING_EDGE | CONFIG_PCLK_SYS_2) //BETWEEN 0 -3 VALUES INCREASING 
+#define PCSR_VAL (CONFIG_PCLK_RISING_EDGE | CONFIG_PCLK_SYS_1) //BETWEEN 0 -3 VALUES INCREASING 
 
 // Calculate horizontal display parameters
 #define CONFIG_LV_DISP_RA8875_HORI_NON_DISP_PERIOD 12  //default value for non display period RANGE 12- 274
@@ -125,11 +124,33 @@
 static void ra8875_configure_clocks(bool high_speed);
  /**********************
  *  STATIC VARIABLES
- **********************/
+ **********************/ 
+spi_host_device_t spi_host = SPI3_HOST;
+spi_device_handle_t spi;
 
 /**********************
  *      MACROS
  **********************/
+#define SPI_TRANSACTION_POOL_SIZE 50	/* maximum number of DMA transactions simultaneously in-flight */
+
+inline uint8_t disp_spi_send_t(uint8_t data, uint8_t data2)__attribute__((always_inline));
+inline uint8_t disp_spi_send_t(uint8_t data, uint8_t data2){
+    spi_transaction_t t;
+    memset(&t, 0, sizeof(t));       //Zero out the transaction
+    t.length = 16; //in bytes
+    t.flags = SPI_TRANS_USE_TXDATA | SPI_TRANS_USE_RXDATA;
+    t.rxlength = 8;
+
+    t.tx_data[0] = data;
+    t.tx_data[1] = data2;
+
+    gpio_set_level(TFT_PIN_CS, 0);
+    spi_device_polling_transmit(spi, &t);
+    gpio_set_level(TFT_PIN_CS, 1);
+
+    return t.rx_data[1];
+}
+
 
 /**********************
  *   GLOBAL FUNCTIONS
@@ -372,9 +393,79 @@ uint8_t readData(){
 }
 
 void writeData(uint8_t d){
-    disp_spi_send_t(RA8875_MODE_DATA_WRITE, d);
+    disp_spi_send_t((uint8_t)RA8875_MODE_DATA_WRITE, d);
 }
 
+
+/**********************
+ *** SPI BUS PROTOTYPES
+**********************/
+
+void disp_spi_init(int clock_speed_hz)
+{
+    ESP_LOGI(TAG, "Adding SPI device with speed %d", clock_speed_hz);
+    spi_bus_config_t buscfg = {
+        .miso_io_num = TFT_PIN_MISO,
+        .mosi_io_num = TFT_PIN_MOSI,
+        .sclk_io_num = TFT_PIN_CLK,
+        .quadwp_io_num = -1,
+        .quadhd_io_num = -1,
+        .max_transfer_sz = 4092,
+    };
+
+    spi_device_interface_config_t devcfg={
+        .clock_speed_hz = clock_speed_hz,
+        .mode = 3,
+        .spics_io_num= -1,              // CS pin
+        .input_delay_ns= 0 ,
+        .queue_size=SPI_TRANSACTION_POOL_SIZE,
+        .cs_ena_pretrans = 0,
+        .cs_ena_posttrans = 0,
+        .address_bits = 0,
+        .command_bits = 0,
+        .dummy_bits = 0,
+        .flags = 0
+    };
+
+    //Initialize the SPI bus
+    esp_err_t bus_ret = spi_bus_initialize(spi_host, &buscfg, SPI_DMA_CH_AUTO);
+    #ifdef DEBUG
+        ESP_LOGI(TAG, "SPI bus init has returned val%d", bus_ret);
+        ESP_ERROR_CHECK(bus_ret);
+    #endif
+        
+        bus_ret = spi_bus_add_device(spi_host, &devcfg, &spi);
+        ESP_ERROR_CHECK(bus_ret);
+
+    #ifdef DEBUG
+        ESP_LOGI(TAG, "SPI bus after adding a new device %d", bus_ret);
+    #endif
+
+    gpio_set_direction(TFT_PIN_CS, GPIO_MODE_OUTPUT);
+    gpio_pulldown_dis(TFT_PIN_CS);
+    gpio_pullup_dis(TFT_PIN_CS);
+}
+
+void disp_spi_send_buffer(uint8_t* data, size_t length){
+    spi_transaction_t t;
+    memset(&t, 0, sizeof(t));       //Zero out the transaction
+    t.length = length*8;            //length in bytes
+    t.tx_buffer = data;
+
+    spi_device_polling_transmit(spi, &t);
+}
+
+void disp_acquire_bus(){
+    spi_device_acquire_bus(spi, portMAX_DELAY);
+}
+
+void disp_release_bus(){
+    spi_device_release_bus(spi);
+}
+
+ /**********************
+ *** SPI BUS PROTOTYPES
+ **********************/
 
 void fillScreen(uint16_t color) {
     // rectHelper(0, 0, _width - 1, _height - 1, color, true);
