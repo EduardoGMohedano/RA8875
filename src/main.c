@@ -33,8 +33,10 @@ void createScreen1(void){
 //   lv_obj_add_event_cb(btn, change_screen_event_cb, LV_EVENT_CLICKED, NULL);
 }
 
-#define SQUARE_SIZE (50)
-#define DRAW_BUF (SQUARE_SIZE*SQUARE_SIZE)
+#define SQUARE_SIZE (800)
+#define LINES   (48*2)
+#define DRAW_BUF (SQUARE_SIZE*LINES)
+static uint8_t square_buf[DRAW_BUF];
 
 void app_main() {
 
@@ -55,28 +57,27 @@ void app_main() {
     // textMode();
     
     vTaskDelay(10 / portTICK_PERIOD_MS); /* let this time pass */
-    uint8_t square_buf[DRAW_BUF];
-    memset(square_buf, 126, DRAW_BUF);
+    memset(square_buf, 224, DRAW_BUF);
     
     int pos = 0;
     uint16_t x1, x2, y1 ,y2;
-    while(1){
+    while( pos < (480 / LINES) ){
       // lv_timer_handler(); /* let the GUI do its work */
         // setCursor(pos*25,pos*25);
         // textEnlarge(1);
         // textTransparent(0xFFFF - pos*1000);
         // textWrite(text, sizeof(text));
-        x1 = pos* SQUARE_SIZE;
-        y1 = pos* SQUARE_SIZE;
-        x2 = x1 + SQUARE_SIZE;
-        y2 = y1 + SQUARE_SIZE;
+        x1 = 0;
+        y1 = pos* LINES;
+        x2 = 800;
+        y2 = y1 + LINES;
         
         ra8875_set_window(x1, x2, y1, y2);
         ra8875_set_memory_write_cursor(x1,y1);
         // Write data
         ra8875_send_buffer(square_buf, DRAW_BUF);
 
-        vTaskDelay(250 / portTICK_PERIOD_MS); /* let this time pass */
         pos++;
-    }
+      }
+      vTaskDelay(10 / portTICK_PERIOD_MS); /* let this time pass */
 }

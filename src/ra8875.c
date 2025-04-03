@@ -115,6 +115,9 @@
     #define BACKLIGHT_EXTERNAL  1
 #endif
 
+#define PIXEL_TRANS_SIZE        (510) //PIXELS SENT EACH TIME
+#define SPI_PIXEL_TRANS_SIZE    (PIXEL_TRANS_SIZE*8) //SIZE IN BITS
+
 /**********************
  *      TYPEDEFS
  **********************/
@@ -468,10 +471,17 @@ void disp_spi_send_buffer(uint8_t* data, size_t length){
     t.tx_buffer = &mock_val;
     spi_device_polling_transmit(fast_spi, &t);
 
-    for(int i = 0; i < length; i++){
+    //Approach by sending many bytes each time per clock transaction
+    t.length = SPI_PIXEL_TRANS_SIZE;
+    int i = 0;
+    for(i = 0; (i + SPI_PIXEL_TRANS_SIZE) < length; i+=PIXEL_TRANS_SIZE){
         t.tx_buffer = data+i;
         spi_device_polling_transmit(fast_spi, &t);
     }
+
+    t.length = (length-i)*8;
+    t.tx_buffer = data+i;
+    spi_device_polling_transmit(fast_spi, &t);
 
     gpio_set_level(TFT_PIN_CS, 1);
 }
