@@ -249,6 +249,8 @@ uint8_t ra8875_init(void)
     PWMout(PWM_PIN_1, 255);
 #endif
 
+    graphicsMode(); //As it is always used for LGVL
+
     return true;
 }
 
