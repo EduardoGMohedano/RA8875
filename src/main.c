@@ -12,7 +12,7 @@
 
 /*LVGL draw into this buffer, 1/10 screen size usually works well. The size is in bytes*/
 #define DRAW_BUF_SIZE (TFT_HOR_RES * TFT_VER_RES / 10 * (LV_COLOR_DEPTH / 8))
-uint32_t draw_buf[DRAW_BUF_SIZE / 4];
+// uint32_t draw_buf[DRAW_BUF_SIZE / 4];
 
 lv_obj_t* screen1; //home
 
@@ -33,7 +33,8 @@ void createScreen1(void){
 //   lv_obj_add_event_cb(btn, change_screen_event_cb, LV_EVENT_CLICKED, NULL);
 }
 
-#define DRAW_BUF 100
+#define SQUARE_SIZE (50)
+#define DRAW_BUF (SQUARE_SIZE*SQUARE_SIZE)
 
 void app_main() {
 
@@ -65,15 +66,15 @@ void app_main() {
         // textEnlarge(1);
         // textTransparent(0xFFFF - pos*1000);
         // textWrite(text, sizeof(text));
-        x1 = pos*10;
-        y1 = pos*10;
-        x2 = x1 + 10;
-        y2 = y1 + 10;
+        x1 = pos* SQUARE_SIZE;
+        y1 = pos* SQUARE_SIZE;
+        x2 = x1 + SQUARE_SIZE;
+        y2 = y1 + SQUARE_SIZE;
         
         ra8875_set_window(x1, x2, y1, y2);
         ra8875_set_memory_write_cursor(x1,y1);
         // Write data
-        ra8875_send_buffer(square_buf, 100);
+        ra8875_send_buffer(square_buf, DRAW_BUF);
 
         vTaskDelay(250 / portTICK_PERIOD_MS); /* let this time pass */
         pos++;

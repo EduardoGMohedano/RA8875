@@ -127,11 +127,14 @@ static void ra8875_configure_clocks(bool high_speed);
  **********************/ 
 spi_host_device_t spi_host = SPI3_HOST;
 spi_device_handle_t spi;
+spi_device_handle_t fast_spi;
+spi_device_interface_config_t fastdevcfg;
 
 /**********************
  *      MACROS
  **********************/
 #define SPI_TRANSACTION_POOL_SIZE 50	/* maximum number of DMA transactions simultaneously in-flight */
+#define SPI_MODE_BUS        3
 
 inline uint8_t disp_spi_send_t(uint8_t data, uint8_t data2)__attribute__((always_inline));
 inline uint8_t disp_spi_send_t(uint8_t data, uint8_t data2){
@@ -415,7 +418,7 @@ void disp_spi_init(int clock_speed_hz)
 
     spi_device_interface_config_t devcfg={
         .clock_speed_hz = clock_speed_hz,
-        .mode = 3,
+        .mode = SPI_MODE_BUS,
         .spics_io_num= -1,              // CS pin
         .input_delay_ns= 0 ,
         .queue_size=SPI_TRANSACTION_POOL_SIZE,
@@ -434,11 +437,20 @@ void disp_spi_init(int clock_speed_hz)
         ESP_ERROR_CHECK(bus_ret);
     #endif
         
-        bus_ret = spi_bus_add_device(spi_host, &devcfg, &spi);
-        ESP_ERROR_CHECK(bus_ret);
+    bus_ret = spi_bus_add_device(spi_host, &devcfg, &spi);
+    ESP_ERROR_CHECK(bus_ret);
 
     #ifdef DEBUG
         ESP_LOGI(TAG, "SPI bus after adding a new device %d", bus_ret);
+    #endif
+        
+    fastdevcfg = devcfg;
+    fastdevcfg.clock_speed_hz = SPI_TFT_PIXEL_CLOCK_SPEED_HZ;
+    bus_ret = spi_bus_add_device(spi_host, &fastdevcfg, &fast_spi);
+    ESP_ERROR_CHECK(bus_ret);
+
+    #ifdef DEBUG
+        ESP_LOGI(TAG, "SPI for PIXEL bus after adding a new device %d", bus_ret);
     #endif
 
     gpio_set_direction(TFT_PIN_CS, GPIO_MODE_OUTPUT);
@@ -454,11 +466,11 @@ void disp_spi_send_buffer(uint8_t* data, size_t length){
     uint8_t mock_val = 0x00;
     gpio_set_level(TFT_PIN_CS, 0);
     t.tx_buffer = &mock_val;
-    spi_device_polling_transmit(spi, &t);
+    spi_device_polling_transmit(fast_spi, &t);
 
     for(int i = 0; i < length; i++){
         t.tx_buffer = data+i;
-        spi_device_polling_transmit(spi, &t);
+        spi_device_polling_transmit(fast_spi, &t);
     }
 
     gpio_set_level(TFT_PIN_CS, 1);

@@ -31,7 +31,8 @@ extern "C" {
 /*********************
  *      PINOUT DEFINES
  *********************/
-#define SPI_TFT_CLOCK_SPEED_HZ  (150*1000)
+#define SPI_TFT_CLOCK_SPEED_HZ          (150*1000)
+#define SPI_TFT_PIXEL_CLOCK_SPEED_HZ    (4000*1000)
 #define TFT_PIN_MISO            (19)
 #define TFT_PIN_MOSI            (23)
 #define TFT_PIN_CLK             (18)
