@@ -2,6 +2,7 @@
 #include <lvgl.h>
 // #include "lv_ra8875.h"
 #include "ra8875.h"
+#include "string.h"
 // LETS ADD HERE THE TOUCHSCREEN DRIVER SUPPORT
 
 /*Set to your screen resolution and rotation*/
@@ -32,7 +33,7 @@ void createScreen1(void){
 //   lv_obj_add_event_cb(btn, change_screen_event_cb, LV_EVENT_CLICKED, NULL);
 }
 
-
+#define DRAW_BUF 100
 
 void app_main() {
 
@@ -45,22 +46,35 @@ void app_main() {
 
     //Code only for SCREEN DEBUGGING
     ra8875_init();
-    // ra8875_set_rotation(0);
+    fillScreen(0x0000);
+    graphicsMode();
 
     
+    // char text[] = "hello again to all my friends!";
+    // textMode();
     
-    char text[] = "hello again to all my friends!";
-    textMode();
     vTaskDelay(10 / portTICK_PERIOD_MS); /* let this time pass */
+    uint8_t square_buf[DRAW_BUF];
+    memset(square_buf, 126, DRAW_BUF);
     
     int pos = 0;
+    uint16_t x1, x2, y1 ,y2;
     while(1){
       // lv_timer_handler(); /* let the GUI do its work */
-        fillScreen(0x0000);
-        setCursor(pos*25,pos*25);
-        textEnlarge(1);
-        textTransparent(0xFFFF - pos*1000);
-        textWrite(text, sizeof(text));
+        // setCursor(pos*25,pos*25);
+        // textEnlarge(1);
+        // textTransparent(0xFFFF - pos*1000);
+        // textWrite(text, sizeof(text));
+        x1 = pos*10;
+        y1 = pos*10;
+        x2 = x1 + 10;
+        y2 = y1 + 10;
+        
+        ra8875_set_window(x1, x2, y1, y2);
+        ra8875_set_memory_write_cursor(x1,y1);
+        // Write data
+        ra8875_send_buffer(square_buf, 100);
+
         vTaskDelay(250 / portTICK_PERIOD_MS); /* let this time pass */
         pos++;
     }

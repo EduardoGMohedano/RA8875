@@ -185,7 +185,7 @@ void textTransparent(uint16_t foreColor);
 void textWrite(const char *buffer, uint16_t len);
 void textMode();
 void textEnlarge(uint8_t scale);
- 
+void graphicsMode();
 
 #ifdef __cplusplus
 } /* extern "C" */

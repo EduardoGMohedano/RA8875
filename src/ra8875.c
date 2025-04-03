@@ -356,11 +356,11 @@ void ra8875_set_memory_write_cursor(uint16_t x, uint16_t y)
 
 void ra8875_send_buffer(uint8_t * data, size_t length)
 {
-    ESP_LOGI(TAG, "RA8875 device sending a buffer of transactions");
+    // ESP_LOGI(TAG, "RA8875 device sending a buffer of transactions");
 
-    uint8_t dir = 0; //fix it to contain rotation value
-    uint8_t curr_val = ra8875_read_register(RA8875_REG_MWCR0); 
-    ra8875_write_register(RA8875_REG_MWCR0, (curr_val & ~RA8875_REG_MWCR0_DIRMASK) | dir);
+    // uint8_t dir = 0; //fix it to contain rotation value
+    // uint8_t curr_val = ra8875_read_register(RA8875_REG_MWCR0); 
+    // ra8875_write_register(RA8875_REG_MWCR0, (curr_val & ~RA8875_REG_MWCR0_DIRMASK) | dir);
     writeCommand(RA8875_REG_MRWC);
 
     disp_spi_send_buffer(data, length); //TODO REVIEW IF I CAN DO IT WITH THE ALINGMENT THAT IS ONLY THE ADDRESS TO SEND THE DATA
@@ -449,10 +449,19 @@ void disp_spi_init(int clock_speed_hz)
 void disp_spi_send_buffer(uint8_t* data, size_t length){
     spi_transaction_t t;
     memset(&t, 0, sizeof(t));       //Zero out the transaction
-    t.length = length*8;            //length in bytes
-    t.tx_buffer = data;
-
+    t.length = 8;            //length in bytes
+    
+    uint8_t mock_val = 0x00;
+    gpio_set_level(TFT_PIN_CS, 0);
+    t.tx_buffer = &mock_val;
     spi_device_polling_transmit(spi, &t);
+
+    for(int i = 0; i < length; i++){
+        t.tx_buffer = data+i;
+        spi_device_polling_transmit(spi, &t);
+    }
+
+    gpio_set_level(TFT_PIN_CS, 1);
 }
 
 void disp_acquire_bus(){
@@ -567,3 +576,11 @@ void textEnlarge(uint8_t scale) {
   
     // _textScale = scale;
   }
+
+void graphicsMode() {
+    /* Set text mode */
+    writeCommand(0x40);
+    uint8_t temp = readData();
+    temp &= 0x7F; // clear bit 7
+    writeData(temp);
+}
