@@ -118,7 +118,7 @@
 
 // #define PIXEL_TRANS_SIZE        (510) //PIXELS SENT EACH TIME
 // #define SPI_PIXEL_TRANS_SIZE    (PIXEL_TRANS_SIZE*8) //SIZE IN BITS
-#define PIXEL_TRANS_SIZE        (64) //PIXELS SENT EACH TIME
+#define PIXEL_TRANS_SIZE        (240) //PIXELS SENT EACH TIME
 #define SPI_PIXEL_TRANS_SIZE    (PIXEL_TRANS_SIZE*16) //SIZE IN BITS
 
 /**********************
@@ -128,13 +128,14 @@
 /**********************/
 
 static void ra8875_configure_clocks(bool high_speed);
- /**********************
+/**********************
  *  STATIC VARIABLES
  **********************/ 
 spi_host_device_t spi_host = SPI3_HOST;
 spi_device_handle_t spi;
 spi_device_handle_t fast_spi;
 spi_device_interface_config_t fastdevcfg;
+static uint16_t data_swapped[38400]; //1/10 of screen size
 
 /**********************
  *      MACROS
@@ -160,6 +161,34 @@ inline uint8_t disp_spi_send_t(uint8_t data, uint8_t data2){
     return t.rx_data[1];
 }
 
+inline void disp_spi_send_buffer(uint16_t* data, size_t length)__attribute__((always_inline));
+inline void disp_spi_send_buffer(uint16_t* data, size_t length){
+    spi_transaction_t t;
+    uint8_t mock_val = 0x00;
+    int i = 0;
+    memset(&t, 0, sizeof(t));       //Zero out the transaction
+    t.length = 8;            //length in bytes
+    t.tx_buffer = &mock_val;
+    
+    //FUCKING NEEDED TO SWAP BYTES FOR EACH ONE
+    swap_bytes_asm(data, data_swapped, length);
+    
+    gpio_set_level(TFT_PIN_CS, 0);
+    spi_device_polling_transmit(fast_spi, &t);
+        
+    t.length = SPI_PIXEL_TRANS_SIZE;
+    //Approach by sending many bytes each time per clock transaction
+    for(i = 0; (i + PIXEL_TRANS_SIZE) < length; i+=PIXEL_TRANS_SIZE){
+        t.tx_buffer = data_swapped+i; 
+        spi_device_polling_transmit(fast_spi, &t);
+    }
+    
+    t.length = (length-i)*16;
+    t.tx_buffer = data_swapped+i; 
+    spi_device_polling_transmit(fast_spi, &t);
+
+    gpio_set_level(TFT_PIN_CS, 1);
+}
 
 /**********************
  *   GLOBAL FUNCTIONS
@@ -468,76 +497,26 @@ void disp_spi_init(int clock_speed_hz)
     gpio_pullup_dis(TFT_PIN_CS);
 }
 
-//Working function for 8BIT pixel data
-#if 0
-void disp_spi_send_buffer(uint8_t* data, size_t length){
-    spi_transaction_t t;
-    memset(&t, 0, sizeof(t));       //Zero out the transaction
-    t.length = 8;            //length in bytes
-    
-    uint8_t mock_val = 0x00;
-    gpio_set_level(TFT_PIN_CS, 0);
-    t.tx_buffer = &mock_val;
-    spi_device_polling_transmit(fast_spi, &t);
-
-    //Approach by sending many bytes each time per clock transaction
-    t.length = SPI_PIXEL_TRANS_SIZE;
-    int i = 0;
-    for(i = 0; (i + SPI_PIXEL_TRANS_SIZE) < length; i+=PIXEL_TRANS_SIZE){
-        t.tx_buffer = data+i;
-        spi_device_polling_transmit(fast_spi, &t);
-    }
-
-    t.length = (length-i)*8;
-    t.tx_buffer = data+i;
-    spi_device_polling_transmit(fast_spi, &t);
-
-    gpio_set_level(TFT_PIN_CS, 1);
-}
-#endif
-
-void disp_spi_send_buffer(uint16_t* data, size_t length){
-    spi_transaction_t t;
-    memset(&t, 0, sizeof(t));       //Zero out the transaction
-    t.length = 8;            //length in bytes
-    
-    uint8_t mock_val = 0x00;
-    t.tx_buffer = &mock_val;
-    gpio_set_level(TFT_PIN_CS, 0);
-    spi_device_polling_transmit(fast_spi, &t);
-
-    //Approach by sending many bytes each time per clock transaction
-
-    int i = 0;
-    uint16_t swapped[PIXEL_TRANS_SIZE];
-    // for(i = 0; i+1 < length; i+=2){
-    // ESP_LOGI(TAG, "Color at dispatcher first 0x%2X, and 0x%2X", (uint8_t)(*(data+i)), (uint8_t)(*(data+i) >> 8) );
-    //FUCKING NEEDED TO SWAP BYTES FOR EACH ONE
-    t.length = SPI_PIXEL_TRANS_SIZE;
-    t.tx_buffer = &swapped[0];
-    for(i = 0; (i + PIXEL_TRANS_SIZE) < length; i+=PIXEL_TRANS_SIZE){
-        for(int j = 0; j < PIXEL_TRANS_SIZE; j++)
-            swapped[j] = ((*(data+i) >> 8)&0x00FF) | ((*(data+i) << 8)&0xFF00);
-            // t.tx_data[0] = (uint8_t)(*(data+i) >> 8);
-            // t.tx_data[1] = (uint8_t)(*(data+i));
-            // t.tx_data[2] = (uint8_t)(*(data+i+1) >> 8);
-            // t.tx_data[3] = (uint8_t)(*(data+i+1));
-            
-            //send data in bundle of 32 transactions
-        spi_device_polling_transmit(fast_spi, &t);
-    }
-    
-    t.length = (length-i)*16;
-    for(int j = 0; j < (length-i); j++){
-        swapped[j] = ((*(data+i) >> 8) & 0x00FF) | ((*(data+i) << 8) & 0xFF00);
-        i++;
-    }
-
-    // t.tx_data[0] = (uint8_t)(*(data+i) >> 8);
-    // t.tx_data[1] = (uint8_t)(*(data+i));
-    spi_device_polling_transmit(fast_spi, &t);
-
-    gpio_set_level(TFT_PIN_CS, 1);
+void swap_bytes_asm(uint16_t *src, uint16_t *dst, size_t len)
+{
+    __asm__ __volatile__ (
+        "beqz    %[len], 2f           \n" // If len == 0, exit
+        "1:                           \n"
+        "l16ui   a4, %[src], 0        \n" // Load src[i]
+        "extui   a5, a4, 0, 8         \n" // a5 = low byte
+        "extui   a6, a4, 8, 8         \n" // a6 = high byte
+        "slli    a5, a5, 8            \n" // a5 <<= 8
+        "or      a4, a5, a6           \n" // a4 = swapped
+        "s16i    a4, %[dst], 0        \n" // Store into dst[i]
+        "addi    %[src], %[src], 2    \n" // src++
+        "addi    %[dst], %[dst], 2    \n" // dst++
+        "addi    %[len], %[len], -1   \n" // len--
+        "bnez    %[len], 1b           \n" // if len != 0, repeat
+        "2:                           \n"
+        : [src] "+r" (src), [dst] "+r" (dst), [len] "+r" (len)
+        :
+        : "a4", "a5", "a6", "memory"
+    );
 }
 
 void disp_acquire_bus(){
