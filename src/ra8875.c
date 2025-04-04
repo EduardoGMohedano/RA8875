@@ -28,7 +28,8 @@
 #if (LV_COLOR_DEPTH == 8)
     #define SYSR_VAL (0x00)
 #elif (LV_COLOR_DEPTH == 16)
-    #define SYSR_VAL (0x08)
+    #warning "COLOR DEPTH SELECTED IS 16"
+    #define SYSR_VAL (0x0C)
 #else
     #error "Unsupported color depth (LV_COLOR_DEPTH)"
 #endif
@@ -115,8 +116,10 @@
     #define BACKLIGHT_EXTERNAL  1
 #endif
 
-#define PIXEL_TRANS_SIZE        (510) //PIXELS SENT EACH TIME
-#define SPI_PIXEL_TRANS_SIZE    (PIXEL_TRANS_SIZE*8) //SIZE IN BITS
+// #define PIXEL_TRANS_SIZE        (510) //PIXELS SENT EACH TIME
+// #define SPI_PIXEL_TRANS_SIZE    (PIXEL_TRANS_SIZE*8) //SIZE IN BITS
+#define PIXEL_TRANS_SIZE        (100) //PIXELS SENT EACH TIME
+#define SPI_PIXEL_TRANS_SIZE    (PIXEL_TRANS_SIZE*16) //SIZE IN BITS
 
 /**********************
  *      TYPEDEFS
@@ -360,7 +363,7 @@ void ra8875_set_memory_write_cursor(uint16_t x, uint16_t y)
     ra8875_write_register(RA8875_REG_CURV1, (uint8_t)(y >> 8));     // Memory Write Cursor Vertical Position Register 1 (CURV1)
 }
 
-void ra8875_send_buffer(uint8_t * data, size_t length)
+void ra8875_send_buffer(uint16_t * data, size_t length)
 {
     // ESP_LOGI(TAG, "RA8875 device sending a buffer of transactions");
 
@@ -369,7 +372,11 @@ void ra8875_send_buffer(uint8_t * data, size_t length)
     // ra8875_write_register(RA8875_REG_MWCR0, (curr_val & ~RA8875_REG_MWCR0_DIRMASK) | dir);
     writeCommand(RA8875_REG_MRWC);
 
+    //TODO MAY NEED PARTIALLY UPDATE BUS WIDTH TO ACCELERATE TRANSFER
+    // ra8875_write_register(RA8875_REG_SYSR, 0x0A); //HARDCODED TO 16BIT COLOR AND INTERFACE 
     disp_spi_send_buffer(data, length); //TODO REVIEW IF I CAN DO IT WITH THE ALINGMENT THAT IS ONLY THE ADDRESS TO SEND THE DATA
+    // ra8875_write_register(RA8875_REG_SYSR, 0x08); //HARDCODED TO 16BIT COLOR AND INTERFACE 
+
 }
 
 static void configurePWM(uint8_t pwm_pin, bool enable, uint8_t pwm_clock){
@@ -461,6 +468,8 @@ void disp_spi_init(int clock_speed_hz)
     gpio_pullup_dis(TFT_PIN_CS);
 }
 
+//Working function for 8BIT pixel data
+#if 0
 void disp_spi_send_buffer(uint8_t* data, size_t length){
     spi_transaction_t t;
     memset(&t, 0, sizeof(t));       //Zero out the transaction
@@ -482,6 +491,41 @@ void disp_spi_send_buffer(uint8_t* data, size_t length){
     t.length = (length-i)*8;
     t.tx_buffer = data+i;
     spi_device_polling_transmit(fast_spi, &t);
+
+    gpio_set_level(TFT_PIN_CS, 1);
+}
+#endif
+
+void disp_spi_send_buffer(uint16_t* data, size_t length){
+    spi_transaction_t t;
+    memset(&t, 0, sizeof(t));       //Zero out the transaction
+    t.length = 8;            //length in bytes
+    
+    uint8_t mock_val = 0x00;
+    t.tx_buffer = &mock_val;
+    gpio_set_level(TFT_PIN_CS, 0);
+    spi_device_polling_transmit(fast_spi, &t);
+
+    //Approach by sending many bytes each time per clock transaction
+    t.flags = SPI_TRANS_USE_TXDATA;
+    t.length = 32;
+    int i = 0;
+    // for(i = 0; (i + SPI_PIXEL_TRANS_SIZE) < length; i+=PIXEL_TRANS_SIZE){
+    // ESP_LOGI(TAG, "Color at dispatcher first 0x%2X, and 0x%2X", (uint8_t)(*(data+i)), (uint8_t)(*(data+i) >> 8) );
+    //FUCKING NEEDED TO SWAP BYTES FOR EACH ONE
+    for(i = 0; i+1 < length; i+=2){
+        // t.tx_buffer = data+i;
+        t.tx_data[0] = (uint8_t)(*(data+i) >> 8);
+        t.tx_data[1] = (uint8_t)(*(data+i));
+        t.tx_data[2] = (uint8_t)(*(data+i+1) >> 8);
+        t.tx_data[3] = (uint8_t)(*(data+i+1));
+        spi_device_polling_transmit(fast_spi, &t);
+    }
+
+    // t.length = (length-i)*16;
+    // t.tx_data[0] = (uint8_t)(*(data+i) >> 8);
+    // t.tx_data[1] = (uint8_t)(*(data+i));
+    // spi_device_polling_transmit(fast_spi, &t);
 
     gpio_set_level(TFT_PIN_CS, 1);
 }

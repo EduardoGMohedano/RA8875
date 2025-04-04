@@ -23,7 +23,7 @@ extern "C" {
 #ifdef  USE_LGVL_LIBRARY
     #include "lgvl.h"
 #else
-    #define LV_COLOR_DEPTH  8
+    #define LV_COLOR_DEPTH  16
     #define LV_HOR_RES_MAX  800
     #define LV_VER_RES_MAX  480
 #endif
@@ -154,7 +154,7 @@ void ra8875_enable_display(bool enable);
 void ra8875_set_rotation(int rotation);
 void ra8875_set_window(uint16_t xs, uint16_t xe, uint16_t ys, uint16_t ye);
 void ra8875_set_memory_write_cursor(uint16_t x, uint16_t y);
-void ra8875_send_buffer(uint8_t * data, size_t length);
+void ra8875_send_buffer(uint16_t * data, size_t length);
 // void ra8875_flush(lv_disp_drv_t * drv, const lv_area_t * area, lv_color_t * color_map);
 
 void ra8875_sleep_in(void);
@@ -176,7 +176,8 @@ static void PWMout(uint8_t pwm_pin, uint8_t duty_cycle);
  *** SPI BUS PROTOTYPES
  **********************/
 void disp_spi_init(int clock_speed_hz);
-void disp_spi_send_buffer(uint8_t* data, size_t length);
+// void disp_spi_send_buffer(uint8_t* data, size_t length);
+void disp_spi_send_buffer(uint16_t* data, size_t length);
 void disp_acquire_bus();
 void disp_release_bus();
 

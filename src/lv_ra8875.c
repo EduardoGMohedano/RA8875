@@ -55,7 +55,7 @@ static void flush_cb(lv_display_t * disp, const lv_area_t * area, uint8_t * px_m
     // }
 
     // Write data
-    ra8875_send_buffer(px_map, w*h);
+    ra8875_send_buffer((uint16_t*)px_map, w*h);
 
     lv_display_flush_ready(disp);
 }
