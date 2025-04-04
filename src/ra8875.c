@@ -118,7 +118,7 @@
 
 // #define PIXEL_TRANS_SIZE        (510) //PIXELS SENT EACH TIME
 // #define SPI_PIXEL_TRANS_SIZE    (PIXEL_TRANS_SIZE*8) //SIZE IN BITS
-#define PIXEL_TRANS_SIZE        (100) //PIXELS SENT EACH TIME
+#define PIXEL_TRANS_SIZE        (64) //PIXELS SENT EACH TIME
 #define SPI_PIXEL_TRANS_SIZE    (PIXEL_TRANS_SIZE*16) //SIZE IN BITS
 
 /**********************
@@ -507,25 +507,35 @@ void disp_spi_send_buffer(uint16_t* data, size_t length){
     spi_device_polling_transmit(fast_spi, &t);
 
     //Approach by sending many bytes each time per clock transaction
-    t.flags = SPI_TRANS_USE_TXDATA;
-    t.length = 32;
+
     int i = 0;
-    // for(i = 0; (i + SPI_PIXEL_TRANS_SIZE) < length; i+=PIXEL_TRANS_SIZE){
+    uint16_t swapped[PIXEL_TRANS_SIZE];
+    // for(i = 0; i+1 < length; i+=2){
     // ESP_LOGI(TAG, "Color at dispatcher first 0x%2X, and 0x%2X", (uint8_t)(*(data+i)), (uint8_t)(*(data+i) >> 8) );
     //FUCKING NEEDED TO SWAP BYTES FOR EACH ONE
-    for(i = 0; i+1 < length; i+=2){
-        // t.tx_buffer = data+i;
-        t.tx_data[0] = (uint8_t)(*(data+i) >> 8);
-        t.tx_data[1] = (uint8_t)(*(data+i));
-        t.tx_data[2] = (uint8_t)(*(data+i+1) >> 8);
-        t.tx_data[3] = (uint8_t)(*(data+i+1));
+    t.length = SPI_PIXEL_TRANS_SIZE;
+    t.tx_buffer = &swapped[0];
+    for(i = 0; (i + PIXEL_TRANS_SIZE) < length; i+=PIXEL_TRANS_SIZE){
+        for(int j = 0; j < PIXEL_TRANS_SIZE; j++)
+            swapped[j] = ((*(data+i) >> 8)&0x00FF) | ((*(data+i) << 8)&0xFF00);
+            // t.tx_data[0] = (uint8_t)(*(data+i) >> 8);
+            // t.tx_data[1] = (uint8_t)(*(data+i));
+            // t.tx_data[2] = (uint8_t)(*(data+i+1) >> 8);
+            // t.tx_data[3] = (uint8_t)(*(data+i+1));
+            
+            //send data in bundle of 32 transactions
         spi_device_polling_transmit(fast_spi, &t);
     }
+    
+    t.length = (length-i)*16;
+    for(int j = 0; j < (length-i); j++){
+        swapped[j] = ((*(data+i) >> 8) & 0x00FF) | ((*(data+i) << 8) & 0xFF00);
+        i++;
+    }
 
-    // t.length = (length-i)*16;
     // t.tx_data[0] = (uint8_t)(*(data+i) >> 8);
     // t.tx_data[1] = (uint8_t)(*(data+i));
-    // spi_device_polling_transmit(fast_spi, &t);
+    spi_device_polling_transmit(fast_spi, &t);
 
     gpio_set_level(TFT_PIN_CS, 1);
 }
