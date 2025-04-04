@@ -152,9 +152,7 @@ extern "C" {
 uint8_t ra8875_init(void);
 void ra8875_enable_display(bool enable);
 void ra8875_set_rotation(int rotation);
-void ra8875_set_window(uint16_t xs, uint16_t xe, uint16_t ys, uint16_t ye);
-void ra8875_set_memory_write_cursor(uint16_t x, uint16_t y);
-void ra8875_send_buffer(uint16_t * data, size_t length);
+void ra8875_send_buffer(uint16_t * data, uint16_t xs, uint16_t xe, uint16_t ys, uint16_t ye);
 
 void ra8875_sleep_in(void);
 void ra8875_sleep_out(void);

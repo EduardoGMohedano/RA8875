@@ -3,7 +3,7 @@
 #ifdef LV_USE_RA8875
 
 #include "esp_log.h"
-#define DEBUG   1
+// #define DEBUG   1
 
 #include "ra8875.h"
 #include <stdint.h>
@@ -31,31 +31,24 @@ lv_display_t * lv_ra8875_create(uint32_t hor_res, uint32_t ver_res, void* buf, u
 }
 
 static void flush_cb(lv_display_t * disp, const lv_area_t * area, uint8_t * px_map){
-    uint32_t w = (area->x2 - area->x1 + 1);
-    uint32_t h = (area->y2 - area->y1 + 1);
+    // uint32_t w = (area->x2 - area->x1 + 1);
+    // uint32_t h = (area->y2 - area->y1 + 1);
 
-    // Set window
-    #if DEBUG
-        ESP_LOGI(TAG, "flush: set window (x1,y1): %ld,%ld -> to point(x2,y2): %ld,%ld", area->x1, area->y1, area->x2, area->y2);
-    #endif
-        ra8875_set_window(area->x1, area->y1, area->x2 , area->y2);
+    // // Set window
+    // #if DEBUG
+    //     ESP_LOGI(TAG, "flush: set window (x1,y1): %ld,%ld -> to point(x2,y2): %ld,%ld", area->x1, area->y1, area->x2, area->y2);
+    // #endif
+    //     ra8875_set_window(area->x1, area->x2 , area->y1, area->y2);
     
 
-    // Set cursor to start pushing pixels in the correct position 
-    #if DEBUG
-            ESP_LOGI(TAG, "flush: set cursor (x,y): %ld,%ld", area->x1, area->y1);
-    #endif
-            ra8875_set_memory_write_cursor(area->x1, area->y1);
-    
-
-    // // Update to future cursor location
-    // y = area->y2 + 1;
-    // if (y >= LV_VER_RES_MAX) {
-    //     y = 0;
-    // }
+    // // Set cursor to start pushing pixels in the correct position 
+    // #if DEBUG
+    //         ESP_LOGI(TAG, "flush: set cursor (x,y): %ld,%ld", area->x1, area->y1);
+    // #endif
+    //         ra8875_set_memory_write_cursor(area->x1, area->y1); 
 
     // Write data
-    ra8875_send_buffer((uint16_t*)px_map, w*h);
+    ra8875_send_buffer((uint16_t*)px_map, area->x1, area->x2, area->y1, area->y2);
 
     lv_display_flush_ready(disp);
 }

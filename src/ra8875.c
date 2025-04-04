@@ -143,6 +143,28 @@ static uint16_t data_swapped[38400]; //1/10 of screen size
 #define SPI_TRANSACTION_POOL_SIZE 50	/* maximum number of DMA transactions simultaneously in-flight */
 #define SPI_MODE_BUS        3
 
+//Set a drawing window area
+inline void ra8875_set_window(uint16_t xs, uint16_t xe, uint16_t ys, uint16_t ye)__attribute__((always_inline));
+inline void ra8875_set_window(uint16_t xs, uint16_t xe, uint16_t ys, uint16_t ye){
+    ra8875_write_register(RA8875_REG_HSAW0, (uint8_t)(xs & 0x00FF)); // Horizontal Start Point 0 of Active Window (HSAW0)
+    ra8875_write_register(RA8875_REG_HSAW1, (uint8_t)(xs >> 8));    // Horizontal Start Point 1 of Active Window (HSAW1)
+    ra8875_write_register(RA8875_REG_VSAW0, (uint8_t)(ys & 0x00FF)); // Vertical Start Point 0 of Active Window (VSAW0)
+    ra8875_write_register(RA8875_REG_VSAW1, (uint8_t)(ys >> 8));    // Vertical Start Point 1 of Active Window (VSAW1)
+    ra8875_write_register(RA8875_REG_HEAW0, (uint8_t)(xe & 0x00FF)); // Horizontal End Point 0 of Active Window (HEAW0)
+    ra8875_write_register(RA8875_REG_HEAW1, (uint8_t)(xe >> 8));    // Horizontal End Point 1 of Active Window (HEAW1)
+    ra8875_write_register(RA8875_REG_VEAW0, (uint8_t)(ye & 0x00FF)); // Vertical End Point of Active Window 0 (VEAW0)
+    ra8875_write_register(RA8875_REG_VEAW1, (uint8_t)(ye >> 8));    // Vertical End Point of Active Window 1 (VEAW1)
+}
+
+// Used to set the cursor at certain position 
+inline void ra8875_set_memory_write_cursor(uint16_t x, uint16_t y)__attribute__((always_inline));
+inline void ra8875_set_memory_write_cursor(uint16_t x, uint16_t y){
+    ra8875_write_register(RA8875_REG_CURH0, (uint8_t)(x & 0x00FF));  // Memory Write Cursor Horizontal Position Register 0 (CURH0)
+    ra8875_write_register(RA8875_REG_CURH1, (uint8_t)(x >> 8));     // Memory Write Cursor Horizontal Position Register 1 (CURH1)
+    ra8875_write_register(RA8875_REG_CURV0, (uint8_t)(y & 0x00FF));  // Memory Write Cursor Vertical Position Register 0 (CURV0)
+    ra8875_write_register(RA8875_REG_CURV1, (uint8_t)(y >> 8));     // Memory Write Cursor Vertical Position Register 1 (CURV1)
+}
+
 inline uint8_t disp_spi_send_t(uint8_t data, uint8_t data2)__attribute__((always_inline));
 inline uint8_t disp_spi_send_t(uint8_t data, uint8_t data2){
     spi_transaction_t t;
@@ -370,36 +392,22 @@ void ra8875_configure_clocks(bool high_speed)
     vTaskDelay(5 / portTICK_PERIOD_MS);
 }
 
-void ra8875_set_window(uint16_t xs, uint16_t xe, uint16_t ys, uint16_t ye){
-    // ESP_LOGI(TAG, "RA8875 device setting a window..");
-    ra8875_write_register(RA8875_REG_HSAW0, (uint8_t)(xs & 0x00FF)); // Horizontal Start Point 0 of Active Window (HSAW0)
-    ra8875_write_register(RA8875_REG_HSAW1, (uint8_t)(xs >> 8));    // Horizontal Start Point 1 of Active Window (HSAW1)
-    ra8875_write_register(RA8875_REG_VSAW0, (uint8_t)(ys & 0x00FF)); // Vertical Start Point 0 of Active Window (VSAW0)
-    ra8875_write_register(RA8875_REG_VSAW1, (uint8_t)(ys >> 8));    // Vertical Start Point 1 of Active Window (VSAW1)
-    ra8875_write_register(RA8875_REG_HEAW0, (uint8_t)(xe & 0x00FF)); // Horizontal End Point 0 of Active Window (HEAW0)
-    ra8875_write_register(RA8875_REG_HEAW1, (uint8_t)(xe >> 8));    // Horizontal End Point 1 of Active Window (HEAW1)
-    ra8875_write_register(RA8875_REG_VEAW0, (uint8_t)(ye & 0x00FF)); // Vertical End Point of Active Window 0 (VEAW0)
-    ra8875_write_register(RA8875_REG_VEAW1, (uint8_t)(ye >> 8));    // Vertical End Point of Active Window 1 (VEAW1)
-}
 
-// Used to set the cursor at certain position 
-void ra8875_set_memory_write_cursor(uint16_t x, uint16_t y)
-{
-    // ESP_LOGI(TAG, "RA8875 device setting a write cursor..");
-    ra8875_write_register(RA8875_REG_CURH0, (uint8_t)(x & 0x00FF));  // Memory Write Cursor Horizontal Position Register 0 (CURH0)
-    ra8875_write_register(RA8875_REG_CURH1, (uint8_t)(x >> 8));     // Memory Write Cursor Horizontal Position Register 1 (CURH1)
-    ra8875_write_register(RA8875_REG_CURV0, (uint8_t)(y & 0x0FF));  // Memory Write Cursor Vertical Position Register 0 (CURV0)
-    ra8875_write_register(RA8875_REG_CURV1, (uint8_t)(y >> 8));     // Memory Write Cursor Vertical Position Register 1 (CURV1)
-}
 
-void ra8875_send_buffer(uint16_t * data, size_t length)
+void ra8875_send_buffer(uint16_t * data, uint16_t xs, uint16_t xe, uint16_t ys, uint16_t ye)
 {
-    // ESP_LOGI(TAG, "RA8875 device sending a buffer of transactions");
+    //Set active windows to start drawing
+    ra8875_set_window(xs, xe, ys, ye);
+    
+    // Set cursor to start pushing pixels in the correct position 
+    ra8875_set_memory_write_cursor(xs, ys);
 
     // uint8_t dir = 0; //fix it to contain rotation value
     // uint8_t curr_val = ra8875_read_register(RA8875_REG_MWCR0); 
     // ra8875_write_register(RA8875_REG_MWCR0, (curr_val & ~RA8875_REG_MWCR0_DIRMASK) | dir);
     writeCommand(RA8875_REG_MRWC);
+
+    uint32_t length = (xe - xs + 1) * (ye - ys + 1);
 
     //TODO MAY NEED PARTIALLY UPDATE BUS WIDTH TO ACCELERATE TRANSFER
     // ra8875_write_register(RA8875_REG_SYSR, 0x0A); //HARDCODED TO 16BIT COLOR AND INTERFACE 
