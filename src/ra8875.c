@@ -56,11 +56,6 @@
 // #endif
 #define DPCR_VAL (0x00) //DISPLAY NOT INVERTED, USE ABOVE LOGIC TO SET VALUES AND POSIBLY SET DIRECTIONS
 
-// #if CONFIG_LV_DISP_RA8875_PCLK_INVERT
-//     #define PCSR_VAL (0x80 | CONFIG_LV_DISP_RA8875_PCLK_MULTIPLIER)
-// #else
-//     #define PCSR_VAL (CONFIG_LV_DISP_RA8875_PCLK_MULTIPLIER)
-// #endif
 #define CONFIG_PCLK_RISING_EDGE     (0x00)
 #define CONFIG_PCLK_FALLING_EDGE    (0x80)
 #define CONFIG_PCLK_SYS_1           (0x00)
@@ -135,7 +130,6 @@ spi_host_device_t spi_host = SPI3_HOST;
 spi_device_handle_t spi;
 spi_device_handle_t fast_spi;
 spi_device_interface_config_t fastdevcfg;
-static uint16_t data_swapped[38400]; //1/10 of screen size
 
 /**********************
  *      MACROS
@@ -193,7 +187,7 @@ inline void disp_spi_send_buffer(uint16_t* data, size_t length){
     t.tx_buffer = &mock_val;
     
     //FUCKING NEEDED TO SWAP BYTES FOR EACH ONE
-    swap_bytes_asm(data, data_swapped, length);
+    swap_bytes_asm(data, length);
     
     gpio_set_level(TFT_PIN_CS, 0);
     spi_device_polling_transmit(fast_spi, &t);
@@ -201,12 +195,12 @@ inline void disp_spi_send_buffer(uint16_t* data, size_t length){
     t.length = SPI_PIXEL_TRANS_SIZE;
     //Approach by sending many bytes each time per clock transaction
     for(i = 0; (i + PIXEL_TRANS_SIZE) < length; i+=PIXEL_TRANS_SIZE){
-        t.tx_buffer = data_swapped+i; 
+        t.tx_buffer = data+i; 
         spi_device_polling_transmit(fast_spi, &t);
     }
     
     t.length = (length-i)*16;
-    t.tx_buffer = data_swapped+i; 
+    t.tx_buffer = data+i; 
     spi_device_polling_transmit(fast_spi, &t);
 
     gpio_set_level(TFT_PIN_CS, 1);
@@ -392,8 +386,6 @@ void ra8875_configure_clocks(bool high_speed)
     vTaskDelay(5 / portTICK_PERIOD_MS);
 }
 
-
-
 void ra8875_send_buffer(uint16_t * data, uint16_t xs, uint16_t xe, uint16_t ys, uint16_t ye)
 {
     //Set active windows to start drawing
@@ -505,23 +497,22 @@ void disp_spi_init(int clock_speed_hz)
     gpio_pullup_dis(TFT_PIN_CS);
 }
 
-void swap_bytes_asm(uint16_t *src, uint16_t *dst, size_t len)
+void swap_bytes_asm(uint16_t *data, size_t len)
 {
     __asm__ __volatile__ (
-        "beqz    %[len], 2f           \n" // If len == 0, exit
+        "beqz    %[len], 2f           \n" // If len == 0, skip loop
         "1:                           \n"
-        "l16ui   a4, %[src], 0        \n" // Load src[i]
+        "l16ui   a4, %[data], 0       \n" // Load uint16_t from data[i]
         "extui   a5, a4, 0, 8         \n" // a5 = low byte
         "extui   a6, a4, 8, 8         \n" // a6 = high byte
         "slli    a5, a5, 8            \n" // a5 <<= 8
         "or      a4, a5, a6           \n" // a4 = swapped
-        "s16i    a4, %[dst], 0        \n" // Store into dst[i]
-        "addi    %[src], %[src], 2    \n" // src++
-        "addi    %[dst], %[dst], 2    \n" // dst++
+        "s16i    a4, %[data], 0       \n" // Store swapped value back
+        "addi    %[data], %[data], 2 \n" // data++
         "addi    %[len], %[len], -1   \n" // len--
-        "bnez    %[len], 1b           \n" // if len != 0, repeat
+        "bnez    %[len], 1b           \n" // Loop if len > 0
         "2:                           \n"
-        : [src] "+r" (src), [dst] "+r" (dst), [len] "+r" (len)
+        : [data] "+r" (data), [len] "+r" (len)
         :
         : "a4", "a5", "a6", "memory"
     );

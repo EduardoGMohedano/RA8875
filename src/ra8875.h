@@ -32,7 +32,7 @@ extern "C" {
  *      PINOUT DEFINES
  *********************/
 #define SPI_TFT_CLOCK_SPEED_HZ          (150*1000)
-#define SPI_TFT_PIXEL_CLOCK_SPEED_HZ    (12*1000*1000)
+#define SPI_TFT_PIXEL_CLOCK_SPEED_HZ    (10*1000*1000)
 #define TFT_PIN_MISO            (19)
 #define TFT_PIN_MOSI            (23)
 #define TFT_PIN_CLK             (18)
@@ -173,7 +173,7 @@ static void PWMout(uint8_t pwm_pin, uint8_t duty_cycle);
  *** SPI BUS PROTOTYPES
  **********************/
 void disp_spi_init(int clock_speed_hz);
-void swap_bytes_asm(uint16_t *src, uint16_t *dst, size_t len);
+void swap_bytes_asm(uint16_t *data, size_t len);
 void disp_acquire_bus();
 void disp_release_bus();
 
