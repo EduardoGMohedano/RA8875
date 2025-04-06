@@ -32,7 +32,7 @@ extern "C" {
  *      PINOUT DEFINES
  *********************/
 #define SPI_TFT_CLOCK_SPEED_HZ          (150*1000)
-#define SPI_TFT_PIXEL_CLOCK_SPEED_HZ    (10*1000*1000)
+#define SPI_TFT_PIXEL_CLOCK_SPEED_HZ    (13*1000*1000)
 #define TFT_PIN_MISO            (19)
 #define TFT_PIN_MOSI            (23)
 #define TFT_PIN_CLK             (18)
@@ -153,6 +153,7 @@ uint8_t ra8875_init(void);
 void ra8875_enable_display(bool enable);
 void ra8875_set_rotation(int rotation);
 void ra8875_send_buffer(uint16_t * data, uint16_t xs, uint16_t xe, uint16_t ys, uint16_t ye);
+void ra8875_wait_flush_cb();
 
 void ra8875_sleep_in(void);
 void ra8875_sleep_out(void);
@@ -176,6 +177,7 @@ void disp_spi_init(int clock_speed_hz);
 void swap_bytes_asm(uint16_t *data, size_t len);
 void disp_acquire_bus();
 void disp_release_bus();
+void spi_collect_task(void *arg);
 
 void fillScreen(uint16_t color);
 void setCursor(uint16_t x, uint16_t y);

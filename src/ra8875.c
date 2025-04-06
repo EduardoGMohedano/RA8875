@@ -10,6 +10,7 @@
 #include "driver/gpio.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
 #include "freertos/task.h"
 #include "driver/spi_master.h"
 #include <string.h>
@@ -111,10 +112,10 @@
     #define BACKLIGHT_EXTERNAL  1
 #endif
 
-// #define PIXEL_TRANS_SIZE        (510) //PIXELS SENT EACH TIME
-// #define SPI_PIXEL_TRANS_SIZE    (PIXEL_TRANS_SIZE*8) //SIZE IN BITS
-#define PIXEL_TRANS_SIZE        (240) //PIXELS SENT EACH TIME
-#define SPI_PIXEL_TRANS_SIZE    (PIXEL_TRANS_SIZE*16) //SIZE IN BITS
+#define PIXEL_TRANS_SIZE            (350) //PIXELS SENT EACH TIME
+#define SPI_PIXEL_TRANS_SIZE        (PIXEL_TRANS_SIZE*16) //SIZE IN BITS
+#define SPI_TRANSACTION_POOL_SIZE   50
+#define SPI_MODE_BUS                3
 
 /**********************
  *      TYPEDEFS
@@ -130,12 +131,10 @@ spi_host_device_t spi_host = SPI3_HOST;
 spi_device_handle_t spi;
 spi_device_handle_t fast_spi;
 spi_device_interface_config_t fastdevcfg;
-
-/**********************
- *      MACROS
- **********************/
-#define SPI_TRANSACTION_POOL_SIZE 50	/* maximum number of DMA transactions simultaneously in-flight */
-#define SPI_MODE_BUS        3
+SemaphoreHandle_t xSemDataReady;
+SemaphoreHandle_t xSemFlushDone;
+uint16_t* buffer_data = NULL;
+size_t buffer_length = 0;
 
 //Set a drawing window area
 inline void ra8875_set_window(uint16_t xs, uint16_t xe, uint16_t ys, uint16_t ye)__attribute__((always_inline));
@@ -179,31 +178,47 @@ inline uint8_t disp_spi_send_t(uint8_t data, uint8_t data2){
 
 inline void disp_spi_send_buffer(uint16_t* data, size_t length)__attribute__((always_inline));
 inline void disp_spi_send_buffer(uint16_t* data, size_t length){
+    buffer_data = data;
+    buffer_length = length;
+    xSemaphoreGive(xSemDataReady);
+}
+
+void spi_collect_task(void *arg){
     spi_transaction_t t;
     uint8_t mock_val = 0x00;
     int i = 0;
-    memset(&t, 0, sizeof(t));       //Zero out the transaction
-    t.length = 8;            //length in bytes
-    t.tx_buffer = &mock_val;
-    
-    //FUCKING NEEDED TO SWAP BYTES FOR EACH ONE
-    swap_bytes_asm(data, length);
-    
-    gpio_set_level(TFT_PIN_CS, 0);
-    spi_device_polling_transmit(fast_spi, &t);
-        
-    t.length = SPI_PIXEL_TRANS_SIZE;
-    //Approach by sending many bytes each time per clock transaction
-    for(i = 0; (i + PIXEL_TRANS_SIZE) < length; i+=PIXEL_TRANS_SIZE){
-        t.tx_buffer = data+i; 
-        spi_device_polling_transmit(fast_spi, &t);
-    }
-    
-    t.length = (length-i)*16;
-    t.tx_buffer = data+i; 
-    spi_device_polling_transmit(fast_spi, &t);
+    while (1) {
+        if (xSemaphoreTake(xSemDataReady, portMAX_DELAY) == pdTRUE) {
+            // ESP_LOGI(TAG, "Semaphore received. Task exiting.");
+            memset(&t, 0, sizeof(t));       //Zero out the transaction
+            t.length = 8;            //length in bytes
+            t.tx_buffer = &mock_val;
+            
+            //FUCKING NEEDED TO SWAP BYTES FOR EACH ONE
+            swap_bytes_asm(buffer_data, buffer_length);
+            
+            gpio_set_level(TFT_PIN_CS, 0);
+            spi_device_polling_transmit(fast_spi, &t);
+                
+            t.length = SPI_PIXEL_TRANS_SIZE;
+            //Approach by sending many bytes each time per clock transaction
+            for(i = 0; (i + PIXEL_TRANS_SIZE) < buffer_length; i+=PIXEL_TRANS_SIZE){
+                t.tx_buffer = buffer_data+i; 
+                spi_device_polling_transmit(fast_spi, &t);
+            }
+            
+            t.length = (buffer_length-i)*16;
+            t.tx_buffer = buffer_data+i; 
+            spi_device_polling_transmit(fast_spi, &t);
 
-    gpio_set_level(TFT_PIN_CS, 1);
+            gpio_set_level(TFT_PIN_CS, 1);
+            xSemaphoreGive(xSemFlushDone);
+            // ESP_LOGI(TAG, "Finished sending data...");
+        } 
+        else {
+            ESP_LOGE(TAG, "Semaphore wait failed!");
+        }
+    }
 }
 
 /**********************
@@ -297,7 +312,17 @@ uint8_t ra8875_init(void)
     PWMout(PWM_PIN_1, 255);
 #endif
 
+
+    xSemDataReady = xSemaphoreCreateBinary();
+    xSemFlushDone = xSemaphoreCreateBinary();
+
+    xTaskCreate(spi_collect_task, "spi_collect_task", 4096, NULL, 5, NULL);
+
     return true;
+}
+
+void ra8875_wait_flush_cb(){
+    xSemaphoreTake(xSemFlushDone, portMAX_DELAY);
 }
 
 void ra8875_enable_display(bool enable)
