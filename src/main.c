@@ -13,7 +13,7 @@
 
 /*LVGL draw into this buffer, 1/10 screen size usually works well. The size is in bytes*/
 #define DRAW_BUF_SIZE (TFT_HOR_RES * TFT_VER_RES / 10 * (LV_COLOR_DEPTH / 8))
-uint32_t draw_buf[DRAW_BUF_SIZE / 8];
+uint32_t draw_buf[DRAW_BUF_SIZE / 6];
 
 // #define SQUARE_SIZE (800)
 // #define LINES   (48*2)

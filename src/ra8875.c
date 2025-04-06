@@ -112,7 +112,7 @@
     #define BACKLIGHT_EXTERNAL  1
 #endif
 
-#define PIXEL_TRANS_SIZE            (350) //PIXELS SENT EACH TIME
+#define PIXEL_TRANS_SIZE            (1200) //PIXELS SENT EACH TIME
 #define SPI_PIXEL_TRANS_SIZE        (PIXEL_TRANS_SIZE*16) //SIZE IN BITS
 #define SPI_TRANSACTION_POOL_SIZE   50
 #define SPI_MODE_BUS                3

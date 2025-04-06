@@ -32,7 +32,7 @@ extern "C" {
  *      PINOUT DEFINES
  *********************/
 #define SPI_TFT_CLOCK_SPEED_HZ          (150*1000)
-#define SPI_TFT_PIXEL_CLOCK_SPEED_HZ    (13*1000*1000)
+#define SPI_TFT_PIXEL_CLOCK_SPEED_HZ    (13500*1000)
 #define TFT_PIN_MISO            (19)
 #define TFT_PIN_MOSI            (23)
 #define TFT_PIN_CLK             (18)
@@ -45,7 +45,7 @@ extern "C" {
 
 //Screen tft configurations
 #define CONFIG_LV_DISP_RA8875_PLLDIVM   0 // ranges between 0 - 1
-#define CONFIG_LV_DISP_RA8875_PLLDIVN   16 // ranges between 0 - 31
+#define CONFIG_LV_DISP_RA8875_PLLDIVN   18 // ranges between 0 - 31
 #define CONFIG_LV_DISP_RA8875_PLLDIVK   2
 #define CONFIG_BACKLIGHT_INTERNAL       1
 
