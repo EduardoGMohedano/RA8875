@@ -1,12 +1,6 @@
 #include "lv_ra8875.h"
-
-#ifdef LV_USE_RA8875
-
-#include "esp_log.h"
-// #define DEBUG   1
-
 #include "ra8875.h"
-#include <stdint.h>
+#include "esp_log.h"
 
 static const char* TAG = "lv_ra8875";
 static void flush_cb(lv_display_t * disp, const lv_area_t * area, uint8_t * px_map);
@@ -59,5 +53,3 @@ static void resolution_changed_event_cb(lv_event_t* e){
             break;
     }
 }
-
-#endif

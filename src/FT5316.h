@@ -5,13 +5,7 @@
 #include "stdbool.h"
 #include "esp_check.h"
 
-//Configurable stuff, pins, interruption pin and I2C bus speed
-#define FT5316_SDA_PIN                  21
-#define FT5316_SCL_PIN                  22
-#define FT5316_INT_PIN                  15
-#define FT5316_RST_PIN                  4
 #define FT5316_I2C_SPEED                (400000)
-//Configurable stuff, pins, interruption pin and I2C bus speed
 
 #define FT5316_I2C_ADDRESS              (0x70)
 #define I2C_MASTER_NUM                  0       // I2C port number

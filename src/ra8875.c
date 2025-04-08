@@ -1,11 +1,3 @@
-/**
- * @file ra8875.c
- *
- */
-
-/*********************
- *      INCLUDES
- *********************/
 #include "ra8875.h"
 #include "driver/gpio.h"
 #include "esp_log.h"
@@ -14,6 +6,7 @@
 #include "freertos/task.h"
 #include "driver/spi_master.h"
 #include <string.h>
+#include "pin_configuration.h"
 
 /*********************
  *      DEFINES
@@ -42,20 +35,7 @@
 #define VDIR_MASK (1 << 2)
 #define HDIR_MASK (1 << 3)
 
-// #if ( CONFIG_LV_DISPLAY_ORIENTATION_PORTRAIT_INVERTED || CONFIG_LV_DISPLAY_ORIENTATION_LANDSCAPE_INVERTED )
-//     #if CONFIG_LV_INVERT_DISPLAY
-//         #define DPCR_VAL (VDIR_MASK)
-//     #else
-//         #define DPCR_VAL (VDIR_MASK | HDIR_MASK)
-//     #endif
-// #else
-//     #if CONFIG_LV_INVERT_DISPLAY
-//         #define DPCR_VAL (HDIR_MASK)
-//     #else
-//         #define DPCR_VAL (0x00)
-//     #endif
-// #endif
-#define DPCR_VAL (0x00) //DISPLAY NOT INVERTED, USE ABOVE LOGIC TO SET VALUES AND POSIBLY SET DIRECTIONS
+#define DPCR_VAL                    (0x00) //DISPLAY NOT INVERTED
 
 #define CONFIG_PCLK_RISING_EDGE     (0x00)
 #define CONFIG_PCLK_FALLING_EDGE    (0x80)
@@ -64,10 +44,10 @@
 #define CONFIG_PCLK_SYS_4           (0x02)
 #define CONFIG_PCLK_SYS_8           (0x03)
 
-#define PCSR_VAL (CONFIG_PCLK_RISING_EDGE | CONFIG_PCLK_SYS_1) //BETWEEN 0 -3 VALUES INCREASING 
+#define PCSR_VAL (CONFIG_PCLK_RISING_EDGE | CONFIG_PCLK_SYS_1) //Pixel clock values
 
 // Calculate horizontal display parameters
-#define CONFIG_LV_DISP_RA8875_HORI_NON_DISP_PERIOD 12  //default value for non display period RANGE 12- 274
+#define CONFIG_LV_DISP_RA8875_HORI_NON_DISP_PERIOD 12       //default value for non display period RANGE 12- 274
 #if (CONFIG_LV_DISP_RA8875_HORI_NON_DISP_PERIOD >= 260)
     #define HNDR_VAL (31)
 #else
@@ -112,16 +92,11 @@
     #define BACKLIGHT_EXTERNAL  1
 #endif
 
-#define PIXEL_TRANS_SIZE            (1200) //PIXELS SENT EACH TIME
-#define SPI_PIXEL_TRANS_SIZE        (PIXEL_TRANS_SIZE*16) //SIZE IN BITS
+#define PIXEL_TRANS_SIZE            (1200)                  //PIXELS SENT IN EVERY SPI TRANSACTION
+#define SPI_PIXEL_TRANS_SIZE        (PIXEL_TRANS_SIZE*16)   //SIZE IN BITS PER TRANSACTION
 #define SPI_TRANSACTION_POOL_SIZE   50
 #define SPI_MODE_BUS                3
 
-/**********************
- *      TYPEDEFS
- **********************/
-
-/**********************/
 
 static void ra8875_configure_clocks(bool high_speed);
 /**********************
@@ -189,7 +164,6 @@ void spi_collect_task(void *arg){
     int i = 0;
     while (1) {
         if (xSemaphoreTake(xSemDataReady, portMAX_DELAY) == pdTRUE) {
-            // ESP_LOGI(TAG, "Semaphore received. Task exiting.");
             memset(&t, 0, sizeof(t));       //Zero out the transaction
             t.length = 8;            //length in bytes
             t.tx_buffer = &mock_val;
@@ -213,7 +187,6 @@ void spi_collect_task(void *arg){
 
             gpio_set_level(TFT_PIN_CS, 1);
             xSemaphoreGive(xSemFlushDone);
-            // ESP_LOGI(TAG, "Finished sending data...");
         } 
         else {
             ESP_LOGE(TAG, "Semaphore wait failed!");
@@ -274,11 +247,11 @@ uint8_t ra8875_init(void)
     disp_spi_init(SPI_TFT_CLOCK_SPEED_HZ);
     
     if ( ra8875_read_register(0x00) != 0x75 ){
-        ESP_LOGE(TAG, "RA8875 SCREEN NOT FOUND");
+        ESP_LOGE(TAG, "RA8875 screen was not found");
         return false;
     }
 
-    ESP_LOGI(TAG, "RA8875 SCREEN FOUND");
+    ESP_LOGI(TAG, "RA8875 screen found");
     
     //Initialize PLL clocks
     ra8875_configure_clocks(true);
@@ -295,7 +268,7 @@ uint8_t ra8875_init(void)
     ra8875_write_register(RA8875_REG_MCLR, 0x80);
     for(uint8_t i = 100; i != 0; i--) {
         if ((ra8875_read_register(RA8875_REG_MCLR) & 0x80) == 0x00) {
-            ESP_LOGI(TAG, "WAITING for Memory clear to be finished...");
+            ESP_LOGI(TAG, "Waiting for Memory clear to be finished...");
             break;
         }
         vTaskDelay(10);
@@ -327,7 +300,7 @@ void ra8875_wait_flush_cb(){
 
 void ra8875_enable_display(bool enable)
 {
-    ESP_LOGI(TAG, "%s display.", enable ? "Enabling" : "Disabling");
+    ESP_LOGI(TAG, "%s display...", enable ? "Enabling" : "Disabling");
     uint8_t val = enable ? 0x80 : 0x00;
     ra8875_write_register(RA8875_REG_PWRR, val);            // Power and Display Control Register (PWRR)
 }
@@ -419,17 +392,11 @@ void ra8875_send_buffer(uint16_t * data, uint16_t xs, uint16_t xe, uint16_t ys, 
     // Set cursor to start pushing pixels in the correct position 
     ra8875_set_memory_write_cursor(xs, ys);
 
-    // uint8_t dir = 0; //fix it to contain rotation value
-    // uint8_t curr_val = ra8875_read_register(RA8875_REG_MWCR0); 
-    // ra8875_write_register(RA8875_REG_MWCR0, (curr_val & ~RA8875_REG_MWCR0_DIRMASK) | dir);
     writeCommand(RA8875_REG_MRWC);
 
     uint32_t length = (xe - xs + 1) * (ye - ys + 1);
 
-    //TODO MAY NEED PARTIALLY UPDATE BUS WIDTH TO ACCELERATE TRANSFER
-    // ra8875_write_register(RA8875_REG_SYSR, 0x0A); //HARDCODED TO 16BIT COLOR AND INTERFACE 
-    disp_spi_send_buffer(data, length); //TODO REVIEW IF I CAN DO IT WITH THE ALINGMENT THAT IS ONLY THE ADDRESS TO SEND THE DATA
-    // ra8875_write_register(RA8875_REG_SYSR, 0x08); //HARDCODED TO 16BIT COLOR AND INTERFACE 
+    disp_spi_send_buffer(data, length); 
 
 }
 
@@ -551,9 +518,10 @@ void disp_release_bus(){
     spi_device_release_bus(spi);
 }
 
- /**********************
- *** SPI BUS PROTOTYPES
- **********************/
+/**********************
+*** TFT NORMAL PROTOTYPES
+**********************/
+#ifdef USE_NATIVE_TFT_FUNCTIONS
 
 void fillScreen(uint16_t color) {
     // rectHelper(0, 0, _width - 1, _height - 1, color, true);
@@ -656,10 +624,12 @@ void textEnlarge(uint8_t scale) {
     // _textScale = scale;
   }
 
-void graphicsMode() {
+  void graphicsMode() {
     /* Set text mode */
     writeCommand(0x40);
     uint8_t temp = readData();
     temp &= 0x7F; // clear bit 7
     writeData(temp);
 }
+
+#endif //endif NATIVE SCREEN FUNCTIONS

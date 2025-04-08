@@ -1,14 +1,5 @@
-/**
- * @file ra8875.h
- *
- */
-
 #ifndef RA8875_H
 #define RA8875_H
-
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 /*********************
  *      INCLUDES
@@ -20,30 +11,20 @@ extern "C" {
 /*********************
  *      DEFINES
  *********************/
-#ifdef  USE_LGVL_LIBRARY
-    #include "lgvl.h"
-#else
-    #define LV_COLOR_DEPTH  16
-    #define LV_HOR_RES_MAX  800
-    #define LV_VER_RES_MAX  480
-#endif
+#define LV_COLOR_DEPTH          16
+#define LV_HOR_RES_MAX          800
+#define LV_VER_RES_MAX          480
 
-/*********************
- *      PINOUT DEFINES
- *********************/
 #define SPI_TFT_CLOCK_SPEED_HZ          (150*1000)
 #define SPI_TFT_PIXEL_CLOCK_SPEED_HZ    (13500*1000)
-#define TFT_PIN_MISO            (19)
-#define TFT_PIN_MOSI            (23)
-#define TFT_PIN_CLK             (18)
-#define TFT_PIN_CS              (2)
-#define RA8875_USE_RST           1 //Comment to avoid using reset pin
+#define RA8875_USE_RST                     1 //Comment to avoid using reset pin
+
 
 #ifdef  RA8875_USE_RST
     #define RA8875_RST      (5) //RESET PIN FOR TFT SCREEN
 #endif
 
-//Screen tft configurations
+//Screen tft clock configurations
 #define CONFIG_LV_DISP_RA8875_PLLDIVM   0 // ranges between 0 - 1
 #define CONFIG_LV_DISP_RA8875_PLLDIVN   18 // ranges between 0 - 31
 #define CONFIG_LV_DISP_RA8875_PLLDIVK   2
@@ -170,15 +151,19 @@ static void configurePWM(uint8_t pwm_pin, bool enable, uint8_t pwm_clock);
 static void PWMout(uint8_t pwm_pin, uint8_t duty_cycle);
 
 
- /**********************
- *** SPI BUS PROTOTYPES
- **********************/
+/**********************
+*** SPI BUS PROTOTYPES
+**********************/
 void disp_spi_init(int clock_speed_hz);
 void swap_bytes_asm(uint16_t *data, size_t len);
 void disp_acquire_bus();
 void disp_release_bus();
 void spi_collect_task(void *arg);
 
+/**********************
+*** TFT NORMAL PROTOTYPES
+**********************/
+#ifdef USE_NATIVE_TFT_FUNCTIONS
 void fillScreen(uint16_t color);
 void setCursor(uint16_t x, uint16_t y);
 void textTransparent(uint16_t foreColor);
@@ -186,9 +171,7 @@ void textWrite(const char *buffer, uint16_t len);
 void textMode();
 void textEnlarge(uint8_t scale);
 void graphicsMode();
-
-#ifdef __cplusplus
-} /* extern "C" */
 #endif
+
 
 #endif /*RA8875_H*/

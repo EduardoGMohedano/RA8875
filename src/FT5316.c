@@ -1,6 +1,7 @@
 #include "FT5316.h"
 #include "driver/i2c.h"
 #include "driver/gpio.h"
+#include "pin_configuration.h"
 
 //Registers configuration
 #define FT5x06_DEVICE_MODE                0x00
@@ -12,30 +13,6 @@
 #define FT5x06_TOUCH1_XL                  0x04
 #define FT5x06_TOUCH1_YH                  0x05
 #define FT5x06_TOUCH1_YL                  0x06
-
-#define FT5x06_TOUCH2_EV_FLAG             0x09
-#define FT5x06_TOUCH2_XH                  0x09
-#define FT5x06_TOUCH2_XL                  0x0A
-#define FT5x06_TOUCH2_YH                  0x0B
-#define FT5x06_TOUCH2_YL                  0x0C
-
-#define FT5x06_TOUCH3_EV_FLAG             0x0F
-#define FT5x06_TOUCH3_XH                  0x0F
-#define FT5x06_TOUCH3_XL                  0x10
-#define FT5x06_TOUCH3_YH                  0x11
-#define FT5x06_TOUCH3_YL                  0x12
-
-#define FT5x06_TOUCH4_EV_FLAG             0x15
-#define FT5x06_TOUCH4_XH                  0x15
-#define FT5x06_TOUCH4_XL                  0x16
-#define FT5x06_TOUCH4_YH                  0x17
-#define FT5x06_TOUCH4_YL                  0x18
-
-#define FT5x06_TOUCH5_EV_FLAG             0x1B
-#define FT5x06_TOUCH5_XH                  0x1B
-#define FT5x06_TOUCH5_XL                  0x1C
-#define FT5x06_TOUCH5_YH                  0x1D
-#define FT5x06_TOUCH5_YL                  0x1E
 
 #define FT5X0X_REG_THGROUP                0x80   /* touch threshold related to sensitivity */
 #define FT5X0X_REG_THPEAK                 0x81
