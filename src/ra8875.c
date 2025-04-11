@@ -231,6 +231,13 @@ uint8_t ra8875_init(void)
     ESP_LOGI(TAG, "Initializing RA8875...");
     
     // Initialize non-SPI GPIOs
+    gpio_reset_pin(TFT_PIN_CS);
+    gpio_set_direction(TFT_PIN_CS, GPIO_MODE_OUTPUT);
+    gpio_pulldown_dis(TFT_PIN_CS);
+    gpio_pullup_dis(TFT_PIN_CS);
+    gpio_set_level(TFT_PIN_CS, 1);
+    vTaskDelay( 10 / portTICK_PERIOD_MS);
+
     ESP_LOGI(TAG, "Sending reset sequence on PIN...");
     gpio_reset_pin(TFT_PIN_RST);
     gpio_set_direction(TFT_PIN_RST, GPIO_MODE_OUTPUT);
@@ -481,10 +488,7 @@ void disp_spi_init(int clock_speed_hz)
     #ifdef DEBUG
         ESP_LOGI(TAG, "SPI for PIXEL bus after adding a new device %d", bus_ret);
     #endif
-
-    gpio_set_direction(TFT_PIN_CS, GPIO_MODE_OUTPUT);
-    gpio_pulldown_dis(TFT_PIN_CS);
-    gpio_pullup_dis(TFT_PIN_CS);
+    
 }
 
 void swap_bytes_asm(uint16_t *data, size_t len)
