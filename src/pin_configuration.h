@@ -6,6 +6,7 @@
 #define TFT_PIN_MOSI                (23) //Pin number
 #define TFT_PIN_CLK                 (18)
 #define TFT_PIN_CS                  (2)
+#define TFT_PIN_RST                 (5)
 
 //Configurable Pins for I2C bus related to Touch Screen device
 #define FT5316_SDA_PIN               (21)

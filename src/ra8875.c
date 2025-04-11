@@ -231,18 +231,16 @@ uint8_t ra8875_init(void)
     ESP_LOGI(TAG, "Initializing RA8875...");
     
     // Initialize non-SPI GPIOs
-#if RA8875_USE_RST
     ESP_LOGI(TAG, "Sending reset sequence on PIN...");
-    gpio_reset_pin(RA8875_RST);
-    gpio_set_direction(RA8875_RST, GPIO_MODE_OUTPUT);
-    gpio_pullup_dis(RA8875_RST);
+    gpio_reset_pin(TFT_PIN_RST);
+    gpio_set_direction(TFT_PIN_RST, GPIO_MODE_OUTPUT);
+    gpio_pullup_dis(TFT_PIN_RST);
 
     // Reset the RA8875
-    gpio_set_level(RA8875_RST, 0);
+    gpio_set_level(TFT_PIN_RST, 0);
     vTaskDelay( 100 / portTICK_PERIOD_MS);
-    gpio_set_level(RA8875_RST, 1);
+    gpio_set_level(TFT_PIN_RST, 1);
     vTaskDelay( 100 / portTICK_PERIOD_MS);
-#endif
 
     disp_spi_init(SPI_TFT_CLOCK_SPEED_HZ);
     

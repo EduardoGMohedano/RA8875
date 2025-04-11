@@ -17,12 +17,6 @@
 
 #define SPI_TFT_CLOCK_SPEED_HZ          (150*1000)
 #define SPI_TFT_PIXEL_CLOCK_SPEED_HZ    (13500*1000)
-#define RA8875_USE_RST                     1 //Comment to avoid using reset pin
-
-
-#ifdef  RA8875_USE_RST
-    #define RA8875_RST      (5) //RESET PIN FOR TFT SCREEN
-#endif
 
 //Screen tft clock configurations
 #define CONFIG_LV_DISP_RA8875_PLLDIVM   0 // ranges between 0 - 1
