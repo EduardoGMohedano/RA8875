@@ -77,7 +77,8 @@ esp_err_t ft5316_init(void){
     
     ESP_ERROR_CHECK(i2c_driver_install(I2C_MASTER_NUM, conf.mode, 0, 0, 0));
 
-    gpio_set_direction(FT5316_RST_PIN, GPIO_MODE_DEF_OUTPUT);
+    gpio_reset_pin(FT5316_RST_PIN);
+    gpio_set_direction(FT5316_RST_PIN, GPIO_MODE_OUTPUT);
     gpio_pulldown_dis(FT5316_RST_PIN);
     gpio_pullup_dis(FT5316_RST_PIN);
 

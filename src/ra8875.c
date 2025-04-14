@@ -242,6 +242,7 @@ uint8_t ra8875_init(void)
     gpio_reset_pin(TFT_PIN_RST);
     gpio_set_direction(TFT_PIN_RST, GPIO_MODE_OUTPUT);
     gpio_pullup_dis(TFT_PIN_RST);
+    gpio_pulldown_dis(TFT_PIN_RST);
 
     // Reset the RA8875
     gpio_set_level(TFT_PIN_RST, 0);
