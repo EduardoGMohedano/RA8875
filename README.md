@@ -1,6 +1,7 @@
 RA8875 Driver
 
-The intention of this driver is to be used along with LVGL library, so it only supports drawing pixels function using 16 color depth
+The intention of this driver is to be used along with LVGL library, so it only supports drawing pixels function using 16 color depth.
+This driver is configured to use internal GPIOs to drive the internal backlight. If you want to use external GPIOs you must disable CONFIG_BACKLIGHT_INTERNAL macro in ra8875.h header file
 
 TARGET
 This driver has been used and tested for ESP32 and ESP32-S3 platforms. 
